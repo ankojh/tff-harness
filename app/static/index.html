@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A local streaming chat interface." />
+    <title>Chat</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: #111210;
+        --surface: #1c1d1a;
+        --border: #2c2d29;
+        --text: #f1f1ed;
+        --muted: #8e8f88;
+        --error: #ff837a;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: var(--background);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button, textarea { font: inherit; }
+      button { color: inherit; }
+      .app { display: grid; grid-template-rows: 48px minmax(0, 1fr) auto; height: 100%; }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: min(760px, 100%);
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+      .clear {
+        padding: 6px 0;
+        border: 0;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .clear:hover { color: var(--text); }
+      .clear[hidden] { display: block; visibility: hidden; }
+      .status {
+        display: block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #666761;
+      }
+      .status.online { background: #4e9f6d; }
+      .status.offline { background: #d45b52; }
+      .messages {
+        width: min(720px, 100%);
+        margin: 0 auto;
+        padding: 32px 20px 40px;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+      }
+      .empty {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        padding-bottom: 10vh;
+        color: var(--muted);
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+      .message { display: flex; margin-bottom: 28px; }
+      .message.user { justify-content: flex-end; }
+      .message-content {
+        max-width: 88%;
+        overflow-wrap: anywhere;
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .user .message-content {
+        padding: 10px 15px;
+        border-radius: 18px;
+        background: var(--surface);
+        white-space: pre-wrap;
+      }
+      .assistant .message-content { width: 100%; }
+      .assistant .message-content > :first-child { margin-top: 0; }
+      .assistant .message-content > :last-child { margin-bottom: 0; }
+      .assistant .message-content p { margin: 0 0 1em; }
+      .assistant .message-content h1,
+      .assistant .message-content h2,
+      .assistant .message-content h3,
+      .assistant .message-content h4,
+      .assistant .message-content h5,
+      .assistant .message-content h6 {
+        margin: 1.35em 0 0.55em;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+      }
+      .assistant .message-content h1 { font-size: 1.6em; }
+      .assistant .message-content h2 { font-size: 1.35em; }
+      .assistant .message-content h3 { font-size: 1.15em; }
+      .assistant .message-content ul,
+      .assistant .message-content ol { margin: 0 0 1em; padding-left: 1.55em; }
+      .assistant .message-content li { margin: 0.25em 0; padding-left: 0.15em; }
+      .assistant .message-content .task-item { list-style: none; margin-left: -1.35em; }
+      .assistant .message-content input[type="checkbox"] { vertical-align: -1px; }
+      .assistant .message-content blockquote {
+        margin: 0 0 1em;
+        padding-left: 1em;
+        border-left: 3px solid var(--border);
+        color: var(--muted);
+      }
+      .assistant .message-content code {
+        padding: 0.16em 0.38em;
+        border-radius: 5px;
+        background: var(--surface);
+        font: 0.88em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .assistant .message-content pre {
+        margin: 0 0 1em;
+        padding: 14px 16px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+      .assistant .message-content pre code {
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        white-space: pre;
+        font-size: 12px;
+      }
+      .assistant .message-content a { color: #9db8ff; text-underline-offset: 3px; }
+      .assistant .message-content hr { margin: 1.25em 0; border: 0; border-top: 1px solid var(--border); }
+      .assistant .message-content .table-wrap { margin: 0 0 1em; overflow-x: auto; }
+      .assistant .message-content table { width: 100%; border-collapse: collapse; font-size: 0.93em; }
+      .assistant .message-content th,
+      .assistant .message-content td { padding: 8px 10px; border: 1px solid var(--border); text-align: left; }
+      .assistant .message-content th { background: var(--surface); font-weight: 600; }
+      .assistant { flex-direction: column; align-items: stretch; }
+      .tool-event {
+        margin-top: 12px;
+        padding: 11px 13px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--muted);
+        background: var(--surface);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .tool-event.failed { color: var(--error); }
+      .tool-preview {
+        max-height: 120px;
+        margin: 9px 0 0;
+        padding: 9px;
+        overflow: auto;
+        border-radius: 8px;
+        background: var(--background);
+        color: var(--text);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .tool-actions { display: flex; gap: 7px; margin-top: 10px; }
+      .tool-action {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--background);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .tool-action.primary { background: var(--text); color: var(--background); }
+      .tool-action:disabled { opacity: 0.45; cursor: default; }
+      .cursor::after {
+        content: "";
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        margin-left: 3px;
+        vertical-align: -2px;
+        background: currentColor;
+        animation: blink 0.85s infinite;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+      .error {
+        margin: -12px 0 28px;
+        color: var(--error);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .composer-area {
+        padding: 8px 20px max(20px, env(safe-area-inset-bottom));
+        background: linear-gradient(to bottom, rgba(17, 18, 16, 0), var(--background) 24px);
+      }
+      .composer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 36px;
+        align-items: end;
+        gap: 10px;
+        width: min(720px, 100%);
+        margin: 0 auto;
+        padding: 10px 10px 10px 16px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: var(--background);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+      }
+      .composer:focus-within { border-color: #55564f; }
+      textarea {
+        width: 100%;
+        min-height: 26px;
+        max-height: 180px;
+        padding: 3px 0;
+        resize: none;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        line-height: 1.45;
+      }
+      textarea::placeholder { color: var(--muted); }
+      .send {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--text);
+        color: var(--background);
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .send:disabled { opacity: 0.16; cursor: default; }
+      .send .stop { display: none; width: 10px; height: 10px; border-radius: 1px; background: currentColor; }
+      .send.streaming .arrow { display: none; }
+      .send.streaming .stop { display: block; }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      @media (max-width: 600px) {
+        .toolbar { padding-inline: 16px; }
+        .messages { padding: 24px 16px 28px; }
+        .composer-area { padding-inline: 12px; }
+        .message-content { max-width: 92%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="toolbar">
+        <button id="clearButton" class="clear" type="button" hidden>Clear</button>
+        <span id="status" class="status" role="status" title="Checking connection">
+          <span id="statusText" class="sr-only">Checking connection</span>
+        </span>
+      </div>
+      <main id="messages" class="messages" aria-live="polite">
+        <div id="empty" class="empty">Ask anything</div>
+      </main>
+      <div class="composer-area">
+        <form id="chatForm" class="composer">
+          <textarea id="prompt" rows="1" placeholder="Message" aria-label="Message" autofocus></textarea>
+          <button id="sendButton" class="send" type="submit" disabled aria-label="Send message">
+            <span class="arrow" aria-hidden="true">↑</span>
+            <span class="stop" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+    <script src="/static/markdown.js"></script>
+    <script>
+      const messagesEl = document.querySelector("#messages");
+      const emptyEl = document.querySelector("#empty");
+      const form = document.querySelector("#chatForm");
+      const promptEl = document.querySelector("#prompt");
+      const sendButton = document.querySelector("#sendButton");
+      const clearButton = document.querySelector("#clearButton");
+      const statusEl = document.querySelector("#status");
+      const statusText = document.querySelector("#statusText");
+      let messages = [];
+      let controller = null;
+      let selectedModel = null;
+      const toolCards = new Map();
+
+      function setStreaming(streaming) {
+        sendButton.classList.toggle("streaming", streaming);
+        sendButton.setAttribute("aria-label", streaming ? "Stop generation" : "Send message");
+        sendButton.disabled = !streaming && !promptEl.value.trim();
+      }
+      function resizePrompt() {
+        promptEl.style.height = "auto";
+        promptEl.style.height = `${Math.min(promptEl.scrollHeight, 180)}px`;
+        if (!controller) sendButton.disabled = !promptEl.value.trim();
+      }
+      function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+      function addMessage(role, content = "") {
+        emptyEl.hidden = true;
+        clearButton.hidden = false;
+        const article = document.createElement("article");
+        article.className = `message ${role}`;
+        const text = document.createElement("div");
+        text.className = "message-content";
+        if (role === "assistant") renderMarkdownInto(text, content);
+        else text.textContent = content;
+        article.append(text);
+        messagesEl.append(article);
+        scrollToBottom();
+        return text;
+      }
+      function showError(message) {
+        const error = document.createElement("div");
+        error.className = "error";
+        error.textContent = message;
+        messagesEl.append(error);
+        scrollToBottom();
+      }
+      function toolDescription(name, path, complete = false) {
+        const verbs = {
+          list_files: complete ? "Listed" : "Listing",
+          search_files: complete ? "Searched" : "Searching",
+          read_file: complete ? "Read" : "Reading",
+          read_pdf: complete ? "Read PDF" : "Reading PDF",
+          create_file: complete ? "Created" : "Create",
+          write_file: complete ? "Wrote" : "Write",
+          replace_in_file: complete ? "Edited" : "Edit",
+          delete_file: complete ? "Moved to trash" : "Move to trash",
+          search_web: complete ? "Searched" : "Searching",
+          fetch_url: complete ? "Fetched" : "Fetching",
+          run_command: complete ? "Ran" : "Run",
+          list_state: complete ? "Listed" : "Listing",
+          read_state: complete ? "Read" : "Reading",
+          write_state: complete ? "Updated" : "Updating",
+          delete_state: complete ? "Deleted" : "Deleting",
+        };
+        const fallback = name.endsWith("_state") ? "state" : "file";
+        return `${verbs[name] || name} ${path || fallback}`;
+      }
+      function toolCard(payload, target) {
+        let card = toolCards.get(payload.call_id);
+        if (!card) {
+          card = document.createElement("div");
+          card.className = "tool-event";
+          const label = document.createElement("div");
+          label.className = "tool-label";
+          card.append(label);
+          target.closest(".message").append(card);
+          toolCards.set(payload.call_id, card);
+        }
+        return card;
+      }
+      function handleToolEvent(payload, target) {
+        if (payload.harness_event === "error") {
+          showError(payload.message || "Tool execution failed.");
+          return;
+        }
+        const card = toolCard(payload, target);
+        const label = card.querySelector(".tool-label");
+        const path = payload.arguments?.path || payload.arguments?.query || payload.arguments?.url || payload.arguments?.command || payload.arguments?.key || "";
+        if (payload.harness_event === "tool_started") {
+          card.dataset.path = path;
+          label.textContent = toolDescription(payload.name, path);
+          return;
+        }
+        if (payload.harness_event === "tool_result") {
+          const previousPath = card.dataset.path || path;
+          label.textContent = payload.ok
+            ? toolDescription(payload.name, previousPath, true)
+            : (payload.error || "Tool execution failed.");
+          card.classList.toggle("failed", !payload.ok);
+          card.querySelector(".tool-actions")?.remove();
+          if (payload.output) {
+            card.querySelector(".tool-output")?.remove();
+            const output = document.createElement("pre");
+            output.className = "tool-preview tool-output";
+            const sections = [];
+            if (payload.output.stdout) sections.push(payload.output.stdout);
+            if (payload.output.stderr) sections.push(`stderr:\n${payload.output.stderr}`);
+            if (!sections.length) sections.push(`Exited with code ${payload.output.exit_code}`);
+            if (payload.output.truncated) sections.push("[output truncated]");
+            output.textContent = sections.join("\n");
+            card.append(output);
+          }
+          return;
+        }
+        if (payload.harness_event !== "tool_approval") return;
+
+        card.dataset.path = path;
+        label.textContent = toolDescription(payload.name, path);
+        if (payload.arguments?.preview) {
+          const preview = document.createElement("pre");
+          preview.className = "tool-preview";
+          preview.textContent = payload.arguments.preview;
+          card.append(preview);
+        }
+        const actions = document.createElement("div");
+        actions.className = "tool-actions";
+        const approve = document.createElement("button");
+        approve.className = "tool-action primary";
+        approve.type = "button";
+        approve.textContent = "Allow";
+        const deny = document.createElement("button");
+        deny.className = "tool-action";
+        deny.type = "button";
+        deny.textContent = "Deny";
+        const decide = async (approved) => {
+          approve.disabled = true;
+          deny.disabled = true;
+          label.textContent = approved ? "Working…" : "Denying…";
+          try {
+            const response = await fetch(`/api/approvals/${encodeURIComponent(payload.approval_id)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ approved }),
+            });
+            if (!response.ok) throw new Error("Approval expired.");
+          } catch (error) {
+            label.textContent = error.message;
+            card.classList.add("failed");
+            actions.remove();
+          }
+        };
+        approve.addEventListener("click", () => decide(true));
+        deny.addEventListener("click", () => decide(false));
+        actions.append(approve, deny);
+        card.append(actions);
+        scrollToBottom();
+      }
+      function extractToken(payload) {
+        const choice = payload.choices?.[0];
+        return choice?.delta?.content ?? choice?.text ?? "";
+      }
+      async function readStream(response, target) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let answer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+          const events = buffer.split(/\r?\n\r?\n/);
+          buffer = events.pop() || "";
+          for (const event of events) {
+            const data = event.split(/\r?\n/)
+              .filter((line) => line.startsWith("data:"))
+              .map((line) => line.slice(5).trim())
+              .join("\n");
+            if (!data || data === "[DONE]") continue;
+            const payload = JSON.parse(data);
+            if (payload.harness_event) {
+              handleToolEvent(payload, target);
+              continue;
+            }
+            answer += extractToken(payload);
+            renderMarkdownInto(target, answer);
+            scrollToBottom();
+          }
+          if (done) break;
+        }
+        return answer;
+      }
+      async function sendMessage(text) {
+        messages.push({ role: "user", content: text });
+        addMessage("user", text);
+        const target = addMessage("assistant");
+        target.classList.add("cursor");
+        controller = new AbortController();
+        setStreaming(true);
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages, model: selectedModel }),
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.detail || `Request failed with HTTP ${response.status}`);
+          }
+          const answer = await readStream(response, target);
+          if (answer) messages.push({ role: "assistant", content: answer });
+          if (!answer) renderMarkdownInto(target, "No response.");
+        } catch (error) {
+          if (error.name === "AbortError") {
+            const partial = target.dataset.rawMarkdown || "";
+            if (partial) messages.push({ role: "assistant", content: partial });
+            else target.closest(".message").remove();
+          } else {
+            target.closest(".message").remove();
+            showError(error.message);
+          }
+        } finally {
+          target.classList.remove("cursor");
+          controller = null;
+          setStreaming(false);
+          promptEl.focus();
+        }
+      }
+      async function checkStatus() {
+        try {
+          const response = await fetch("/api/status");
+          const status = await response.json();
+          selectedModel = status.selected_model;
+          statusEl.className = `status ${status.connected ? "online" : "offline"}`;
+          const label = status.connected ? "Connected" : "Disconnected";
+          statusText.textContent = label;
+          statusEl.title = label;
+        } catch {
+          statusEl.className = "status offline";
+          statusText.textContent = "Disconnected";
+          statusEl.title = "Disconnected";
+        }
+      }
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (controller) { controller.abort(); return; }
+        const text = promptEl.value.trim();
+        if (!text) return;
+        promptEl.value = "";
+        resizePrompt();
+        sendMessage(text);
+      });
+      promptEl.addEventListener("input", resizePrompt);
+      promptEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+      sendButton.addEventListener("click", (event) => {
+        if (controller) { event.preventDefault(); controller.abort(); }
+      });
+      clearButton.addEventListener("click", () => {
+        if (controller) controller.abort();
+        messages = [];
+        messagesEl.replaceChildren(emptyEl);
+        emptyEl.hidden = false;
+        clearButton.hidden = true;
+        toolCards.clear();
+        promptEl.focus();
+      });
+      checkStatus();
+      setInterval(checkStatus, 10000);
+      resizePrompt();
+    </script>
+  </body>
+</html>
