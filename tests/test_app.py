@@ -12,7 +12,9 @@ async def test_index_serves_chat_ui():
 
     assert response.status_code == 200
     assert "<title>Chat</title>" in response.text
-    assert 'fetch("/api/chat"' in response.text
+    assert '"/api/chat"' in response.text
+    assert '"/api/agent/runs"' in response.text
+    assert 'id="agentPanel"' in response.text
     assert '<script src="/static/markdown.js"></script>' in response.text
     assert 'id="terminalMode"' in response.text
     assert "Turbo Fair Field" not in response.text

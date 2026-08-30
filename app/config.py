@@ -16,6 +16,41 @@ def _terminal_mode(value: str) -> str:
     return mode
 
 
+def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def validate_agent_state_path(file_root: Path, path: Path) -> Path:
+    file_root = file_root.resolve()
+    path = path.resolve()
+    try:
+        inside_workspace = os.path.commonpath([file_root, path]) == str(file_root)
+    except ValueError:
+        inside_workspace = False
+    if inside_workspace:
+        raise ValueError("MODEL_AGENT_STATE_FILE must be outside MODEL_FILE_ROOT")
+    return path
+
+
+def _agent_state_path(file_root: Path) -> Path:
+    configured = os.getenv("MODEL_AGENT_STATE_FILE", "").strip()
+    path = (
+        Path(configured).expanduser().resolve()
+        if configured
+        else (
+            file_root.parent / ".tff_agent_runs" / f"{file_root.name}.json"
+        ).resolve()
+    )
+    return validate_agent_state_path(file_root, path)
+
+
 @dataclass(frozen=True)
 class Settings:
     model_base_url: str
@@ -25,6 +60,11 @@ class Settings:
     model_state_file: Path | None = None
     terminal_mode: str = "sandbox"
     sandbox_image: str = "tff-harness-sandbox:latest"
+    agent_state_file: Path | None = None
+    agent_max_tool_rounds: int = 32
+    agent_max_tool_calls: int = 64
+    agent_max_seconds: int = 900
+    agent_max_consecutive_failures: int = 3
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -52,5 +92,18 @@ class Settings:
                     "MODEL_SANDBOX_IMAGE", "tff-harness-sandbox:latest"
                 ).strip()
                 or "tff-harness-sandbox:latest"
+            ),
+            agent_state_file=_agent_state_path(file_root),
+            agent_max_tool_rounds=_bounded_int(
+                "AGENT_MAX_TOOL_ROUNDS", 32, 1, 100
+            ),
+            agent_max_tool_calls=_bounded_int(
+                "AGENT_MAX_TOOL_CALLS", 64, 1, 500
+            ),
+            agent_max_seconds=_bounded_int(
+                "AGENT_MAX_SECONDS", 900, 10, 86_400
+            ),
+            agent_max_consecutive_failures=_bounded_int(
+                "AGENT_MAX_CONSECUTIVE_FAILURES", 3, 1, 20
             ),
         )

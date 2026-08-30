@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 import json
@@ -120,6 +121,9 @@ class ModelGateway:
                 json=payload,
             )
             response = await client.send(request, stream=True)
+        except asyncio.CancelledError:
+            await client.aclose()
+            raise
         except ModelGatewayError:
             await client.aclose()
             raise

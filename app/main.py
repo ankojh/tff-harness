@@ -5,8 +5,10 @@ from typing import Optional
 import httpx
 from fastapi import FastAPI
 
+from app.agent_loop import AgentService
+from app.agent_runs import AgentRunStore
 from app.approvals import ApprovalBroker
-from app.config import Settings
+from app.config import Settings, validate_agent_state_path
 from app.file_tools import FileTools
 from app.model_gateway import ModelGateway
 from app.pdf_tools import PdfTools
@@ -29,20 +31,49 @@ def create_app(
     state_file = configured.model_state_file or (
         configured.model_file_root / ".harness_state.json"
     )
+    agent_state_file = validate_agent_state_path(
+        configured.model_file_root,
+        configured.agent_state_file or (
+            configured.model_file_root.parent
+            / ".tff_agent_runs"
+            / f"{configured.model_file_root.name}.json"
+        ),
+    )
+    file_tools = FileTools(configured.model_file_root)
+    pdf_tools = PdfTools(configured.model_file_root)
+    web_tools = WebTools(web_transport)
+    terminal_tools = TerminalTools(
+        configured.model_file_root,
+        mode=configured.terminal_mode,
+        sandbox_image=configured.sandbox_image,
+    )
+    state_tools = StateTools(state_file)
     tool_loop = ToolLoop(
         gateway,
-        FileTools(configured.model_file_root),
-        PdfTools(configured.model_file_root),
-        WebTools(web_transport),
-        TerminalTools(
-            configured.model_file_root,
-            mode=configured.terminal_mode,
-            sandbox_image=configured.sandbox_image,
-        ),
-        StateTools(state_file),
+        file_tools,
+        pdf_tools,
+        web_tools,
+        terminal_tools,
+        state_tools,
         approvals,
     )
-    app.include_router(create_router(gateway, tool_loop, approvals))
+    agent_service = AgentService(
+        gateway,
+        file_tools,
+        pdf_tools,
+        web_tools,
+        terminal_tools,
+        state_tools,
+        approvals,
+        AgentRunStore(agent_state_file),
+        {
+            "max_tool_rounds": configured.agent_max_tool_rounds,
+            "max_tool_calls": configured.agent_max_tool_calls,
+            "max_seconds": configured.agent_max_seconds,
+            "max_consecutive_failures": configured.agent_max_consecutive_failures,
+        },
+    )
+    app.include_router(create_router(gateway, tool_loop, agent_service, approvals))
     return app
 
 

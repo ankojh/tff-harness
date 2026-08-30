@@ -141,6 +141,10 @@ class FileTools:
             ),
         ]
 
+    @property
+    def names(self) -> set[str]:
+        return {item["function"]["name"] for item in self.definitions}
+
     @staticmethod
     def _definition(
         name: str,

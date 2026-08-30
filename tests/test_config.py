@@ -18,3 +18,12 @@ def test_terminal_mode_rejects_unknown_value(monkeypatch):
 
     with pytest.raises(ValueError, match="MODEL_TERMINAL_MODE"):
         Settings.from_env()
+
+
+def test_agent_state_must_be_outside_model_workspace(tmp_path, monkeypatch):
+    workspace = tmp_path / "workspace"
+    monkeypatch.setenv("MODEL_FILE_ROOT", str(workspace))
+    monkeypatch.setenv("MODEL_AGENT_STATE_FILE", str(workspace / "agent.json"))
+
+    with pytest.raises(ValueError, match="outside MODEL_FILE_ROOT"):
+        Settings.from_env()

@@ -15,6 +15,8 @@ app/
 ├── web_tools.py      # Public web search and readable page extraction
 ├── terminal_tools.py # Bounded shell command execution and output capture
 ├── state_tools.py    # Bounded persistent model-managed state
+├── agent_runs.py     # Durable system-owned run state and lifecycle controls
+├── agent_loop.py     # Budgeted, stoppable, resumable agent orchestration
 ├── approvals.py      # In-memory user approval broker
 ├── tool_loop.py      # Model tool-call orchestration
 ├── routes.py         # HTTP route handlers
@@ -119,6 +121,44 @@ host paths into a custom sandbox image. A bind-mounted workspace does not have a
 separate storage quota, so keep the model workspace on a volume with adequate
 host-level free-space monitoring. Public research remains available through the
 separately bounded web tools rather than container networking.
+
+## Agent mode
+
+Select **Agent** in the toolbar and submit one explicit goal. Agent mode owns a
+single supervised run through planning, workspace execution, verification, and
+completion. Its plan, current step, usage, status, verification evidence, and
+final summary are visible in the UI. File mutations and terminal commands keep
+their per-operation approval prompts.
+
+The harness, rather than the model, persists authoritative run state. By default
+it is stored in `.tff_agent_runs/<workspace-name>.json`, beside rather than
+inside the model workspace. Set `MODEL_AGENT_STATE_FILE` to choose another
+location; the app rejects paths inside `MODEL_FILE_ROOT` so workspace tools
+and sandboxed commands cannot rewrite their own status or budgets. Explicit
+`host` terminal mode does not provide that isolation and remains trusted access.
+
+Only one run can be active, and only the current run is retained in v1. A run
+interrupted by a client disconnect or harness restart becomes `stopped` and must
+be resumed manually. Runs waiting on the user, blocked runs, stopped runs, and
+transiently failed runs are resumable. Completed and budget-exhausted runs are
+not. Stop is available both in the run panel and the composer.
+
+Completion is lifecycle-gated: the agent must create a plan, complete every
+step, enter verification, record concrete evidence, and then call the completion
+control. The harness enforces this sequence, although the quality of semantic
+verification still depends on the model and the evidence-producing tools.
+
+Agent execution has fixed cumulative budgets:
+
+- `AGENT_MAX_TOOL_ROUNDS` defaults to 32 model/tool rounds.
+- `AGENT_MAX_TOOL_CALLS` defaults to 64 calls, including lifecycle controls.
+- `AGENT_MAX_SECONDS` defaults to 900 elapsed streaming seconds, including time
+  spent waiting for an approval.
+- `AGENT_MAX_CONSECUTIVE_FAILURES` defaults to 3 tool failures.
+
+The UI restores the current run after a reload and exposes manual Resume when
+the stored status allows it. Ordinary Chat mode remains available and does not
+create durable agent-run state.
 
 ## Persistent state
 

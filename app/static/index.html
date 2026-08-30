@@ -27,7 +27,7 @@
       }
       button, textarea { font: inherit; }
       button { color: inherit; }
-      .app { display: grid; grid-template-rows: 48px minmax(0, 1fr) auto; height: 100%; }
+      .app { display: grid; grid-template-rows: 48px auto minmax(0, 1fr) auto; height: 100%; }
       .toolbar {
         display: flex;
         align-items: center;
@@ -47,6 +47,24 @@
       .clear:hover { color: var(--text); }
       .clear[hidden] { display: block; visibility: hidden; }
       .runtime-status { display: flex; align-items: center; gap: 9px; }
+      .mode-switch {
+        display: flex;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface);
+      }
+      .mode-option {
+        padding: 4px 9px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .mode-option.active { background: var(--background); color: var(--text); }
+      .mode-option:disabled { cursor: default; opacity: 0.55; }
       .terminal-mode {
         color: var(--muted);
         font-size: 11px;
@@ -54,6 +72,39 @@
         text-transform: uppercase;
       }
       .terminal-mode.host { color: #e2a65c; }
+      .agent-panel {
+        width: min(720px, calc(100% - 40px));
+        margin: 8px auto 0;
+        padding: 13px 15px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+      }
+      .agent-panel[hidden] { display: none; }
+      .agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+      .agent-title { min-width: 0; }
+      .agent-status { color: #9db8ff; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+      .agent-goal { margin-top: 3px; overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+      .agent-actions { display: flex; flex: 0 0 auto; gap: 7px; }
+      .agent-action {
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--background);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .agent-action:disabled { cursor: default; opacity: 0.45; }
+      .agent-plan { display: grid; gap: 4px; margin: 11px 0 0; padding: 0; list-style: none; }
+      .agent-step { display: flex; gap: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+      .agent-step::before { content: "○"; flex: 0 0 auto; }
+      .agent-step.in_progress { color: var(--text); }
+      .agent-step.in_progress::before { content: "◉"; color: #9db8ff; }
+      .agent-step.completed::before { content: "✓"; color: #6fbb88; }
+      .agent-evidence { margin-top: 9px; }
+      .agent-evidence-label { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+      .agent-evidence-list { margin: 5px 0 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
+      .agent-meta { margin-top: 9px; color: var(--muted); font-size: 10px; }
       .status {
         display: block;
         width: 8px;
@@ -276,6 +327,10 @@
     <div class="app">
       <div class="toolbar">
         <button id="clearButton" class="clear" type="button" hidden>Clear</button>
+        <div class="mode-switch" role="group" aria-label="Interaction mode">
+          <button id="chatMode" class="mode-option active" type="button">Chat</button>
+          <button id="agentMode" class="mode-option" type="button">Agent</button>
+        </div>
         <div class="runtime-status">
           <span id="terminalMode" class="terminal-mode">Sandbox</span>
           <span id="status" class="status" role="status" title="Checking connection">
@@ -283,6 +338,25 @@
           </span>
         </div>
       </div>
+      <section id="agentPanel" class="agent-panel" aria-live="polite" hidden>
+        <div class="agent-head">
+          <div class="agent-title">
+            <div id="agentStatus" class="agent-status">Planning</div>
+            <div id="agentGoal" class="agent-goal"></div>
+          </div>
+          <div class="agent-actions">
+            <button id="newAgent" class="agent-action" type="button" hidden>New</button>
+            <button id="resumeAgent" class="agent-action" type="button" hidden>Resume</button>
+            <button id="stopAgent" class="agent-action" type="button" hidden>Stop</button>
+          </div>
+        </div>
+        <ol id="agentPlan" class="agent-plan"></ol>
+        <div id="agentEvidence" class="agent-evidence" hidden>
+          <div class="agent-evidence-label">Verification</div>
+          <ul id="agentEvidenceList" class="agent-evidence-list"></ul>
+        </div>
+        <div id="agentMeta" class="agent-meta"></div>
+      </section>
       <main id="messages" class="messages" aria-live="polite">
         <div id="empty" class="empty">Ask anything</div>
       </main>
@@ -307,15 +381,86 @@
       const statusEl = document.querySelector("#status");
       const statusText = document.querySelector("#statusText");
       const terminalModeEl = document.querySelector("#terminalMode");
+      const chatModeButton = document.querySelector("#chatMode");
+      const agentModeButton = document.querySelector("#agentMode");
+      const agentPanel = document.querySelector("#agentPanel");
+      const agentStatusEl = document.querySelector("#agentStatus");
+      const agentGoalEl = document.querySelector("#agentGoal");
+      const agentPlanEl = document.querySelector("#agentPlan");
+      const agentEvidenceEl = document.querySelector("#agentEvidence");
+      const agentEvidenceListEl = document.querySelector("#agentEvidenceList");
+      const agentMetaEl = document.querySelector("#agentMeta");
+      const stopAgentButton = document.querySelector("#stopAgent");
+      const resumeAgentButton = document.querySelector("#resumeAgent");
+      const newAgentButton = document.querySelector("#newAgent");
       let messages = [];
       let controller = null;
       let selectedModel = null;
+      let interactionMode = "chat";
+      let activeAgentRun = null;
       const toolCards = new Map();
 
       function setStreaming(streaming) {
         sendButton.classList.toggle("streaming", streaming);
-        sendButton.setAttribute("aria-label", streaming ? "Stop generation" : "Send message");
+        const stopLabel = interactionMode === "agent" ? "Stop agent" : "Stop generation";
+        sendButton.setAttribute("aria-label", streaming ? stopLabel : "Send message");
         sendButton.disabled = !streaming && !promptEl.value.trim();
+        chatModeButton.disabled = streaming;
+        agentModeButton.disabled = streaming;
+      }
+      function setMode(mode) {
+        if (controller || !["chat", "agent"].includes(mode)) return;
+        interactionMode = mode;
+        chatModeButton.classList.toggle("active", mode === "chat");
+        agentModeButton.classList.toggle("active", mode === "agent");
+        promptEl.placeholder = mode === "agent"
+          ? (activeAgentRun?.resumable ? "Add guidance to resume" : "Describe a goal")
+          : "Message";
+        promptEl.setAttribute("aria-label", mode === "agent" ? "Agent goal" : "Message");
+        promptEl.focus();
+      }
+      function renderAgentRun(run) {
+        if (!run) {
+          activeAgentRun = null;
+          agentPanel.hidden = true;
+          return;
+        }
+        activeAgentRun = run;
+        agentPanel.hidden = false;
+        agentStatusEl.textContent = run.status.replaceAll("_", " ");
+        agentGoalEl.textContent = run.goal;
+        agentGoalEl.title = run.goal;
+        agentPlanEl.replaceChildren();
+        for (const step of run.plan || []) {
+          const item = document.createElement("li");
+          item.className = `agent-step ${step.status}`;
+          item.textContent = step.text;
+          if (step.note) item.title = step.note;
+          agentPlanEl.append(item);
+        }
+        const evidence = run.verification_evidence || [];
+        agentEvidenceEl.hidden = evidence.length === 0;
+        agentEvidenceListEl.replaceChildren();
+        for (const text of evidence) {
+          const item = document.createElement("li");
+          item.textContent = text;
+          agentEvidenceListEl.append(item);
+        }
+        const usage = run.usage || {};
+        const budget = run.budgets || {};
+        agentMetaEl.textContent = [
+          `${usage.tool_rounds || 0}/${budget.max_tool_rounds || 0} rounds`,
+          `${usage.tool_calls || 0}/${budget.max_tool_calls || 0} tools`,
+          `${usage.elapsed_seconds || 0}/${budget.max_seconds || 0}s`,
+          `${evidence.length} verification records`,
+        ].join(" · ");
+        const active = ["planning", "working", "waiting_for_approval", "verifying"].includes(run.status);
+        stopAgentButton.hidden = !active;
+        stopAgentButton.disabled = Boolean(run.stop_requested);
+        resumeAgentButton.hidden = !run.resumable;
+        resumeAgentButton.disabled = Boolean(controller);
+        newAgentButton.hidden = active;
+        if (interactionMode === "agent" && !controller) setMode("agent");
       }
       function resizePrompt() {
         promptEl.style.height = "auto";
@@ -379,6 +524,14 @@
         return card;
       }
       function handleToolEvent(payload, target) {
+        if (payload.harness_event === "agent_run") {
+          renderAgentRun(payload.run);
+          return;
+        }
+        if (payload.harness_event === "agent_finished") {
+          renderAgentRun(payload.run);
+          return;
+        }
         if (payload.harness_event === "error") {
           showError(payload.message || "Tool execution failed.");
           return;
@@ -477,6 +630,11 @@
             if (!data || data === "[DONE]") continue;
             const payload = JSON.parse(data);
             if (payload.harness_event) {
+              if (payload.harness_event === "agent_finished") {
+                const finalText = payload.summary || payload.message || `Agent ${payload.status}.`;
+                answer += `${answer ? "\n\n" : ""}${finalText}`;
+                renderMarkdownInto(target, answer);
+              }
               handleToolEvent(payload, target);
               continue;
             }
@@ -488,18 +646,16 @@
         }
         return answer;
       }
-      async function sendMessage(text) {
-        messages.push({ role: "user", content: text });
-        addMessage("user", text);
-        const target = addMessage("assistant");
+      async function streamRequest(url, body, target, persistChat = false) {
+        const requestMode = persistChat ? "chat" : "agent";
         target.classList.add("cursor");
         controller = new AbortController();
         setStreaming(true);
         try {
-          const response = await fetch("/api/chat", {
+          const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages, model: selectedModel }),
+            body: JSON.stringify(body),
             signal: controller.signal,
           });
           if (!response.ok) {
@@ -507,22 +663,79 @@
             throw new Error(payload.detail || `Request failed with HTTP ${response.status}`);
           }
           const answer = await readStream(response, target);
-          if (answer) messages.push({ role: "assistant", content: answer });
-          if (!answer) renderMarkdownInto(target, "No response.");
+          if (persistChat && answer) messages.push({ role: "assistant", content: answer });
+          if (!answer) renderMarkdownInto(target, requestMode === "agent" ? "Agent run ended." : "No response.");
         } catch (error) {
           if (error.name === "AbortError") {
             const partial = target.dataset.rawMarkdown || "";
-            if (partial) messages.push({ role: "assistant", content: partial });
-            else target.closest(".message").remove();
+            if (persistChat && partial) messages.push({ role: "assistant", content: partial });
+            if (!partial) target.closest(".message")?.remove();
           } else {
-            target.closest(".message").remove();
+            target.closest(".message")?.remove();
             showError(error.message);
           }
         } finally {
           target.classList.remove("cursor");
           controller = null;
           setStreaming(false);
+          if (activeAgentRun) renderAgentRun(activeAgentRun);
           promptEl.focus();
+        }
+      }
+      async function sendMessage(text) {
+        const isAgent = interactionMode === "agent";
+        if (!isAgent) messages.push({ role: "user", content: text });
+        addMessage("user", text);
+        const target = addMessage("assistant");
+        const resumesAgent = isAgent && activeAgentRun?.resumable;
+        const url = resumesAgent
+          ? `/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/resume`
+          : (isAgent ? "/api/agent/runs" : "/api/chat");
+        const body = resumesAgent
+          ? { instruction: text }
+          : (isAgent
+            ? { goal: text, model: selectedModel }
+            : { messages, model: selectedModel });
+        await streamRequest(url, body, target, !isAgent);
+      }
+      async function stopAgentRun() {
+        if (!activeAgentRun) return;
+        stopAgentButton.disabled = true;
+        try {
+          const response = await fetch(
+            `/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/stop`,
+            { method: "POST" },
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.detail || "Could not stop the agent.");
+          renderAgentRun(payload);
+        } catch (error) {
+          showError(error.message);
+          stopAgentButton.disabled = false;
+        }
+      }
+      async function resumeAgentRun() {
+        if (!activeAgentRun?.resumable || controller) return;
+        setMode("agent");
+        const target = addMessage("assistant");
+        await streamRequest(
+          `/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/resume`,
+          {},
+          target,
+          false,
+        );
+      }
+      async function loadCurrentAgentRun() {
+        try {
+          const response = await fetch("/api/agent/runs/current");
+          if (!response.ok) return;
+          const run = await response.json();
+          renderAgentRun(run);
+          if (run && (run.resumable || ["planning", "working", "waiting_for_approval", "verifying"].includes(run.status))) {
+            setMode("agent");
+          }
+        } catch {
+          // Agent state is supplemental; connection status handles server errors.
         }
       }
       async function checkStatus() {
@@ -549,7 +762,11 @@
       }
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        if (controller) { controller.abort(); return; }
+        if (controller) {
+          if (interactionMode === "agent") stopAgentRun();
+          else controller.abort();
+          return;
+        }
         const text = promptEl.value.trim();
         if (!text) return;
         promptEl.value = "";
@@ -564,10 +781,17 @@
         }
       });
       sendButton.addEventListener("click", (event) => {
-        if (controller) { event.preventDefault(); controller.abort(); }
+        if (!controller) return;
+        event.preventDefault();
+        if (interactionMode === "agent") stopAgentRun();
+        else controller.abort();
       });
       clearButton.addEventListener("click", () => {
-        if (controller) controller.abort();
+        if (controller) {
+          if (interactionMode === "agent") stopAgentRun();
+          else controller.abort();
+          return;
+        }
         messages = [];
         messagesEl.replaceChildren(emptyEl);
         emptyEl.hidden = false;
@@ -575,7 +799,16 @@
         toolCards.clear();
         promptEl.focus();
       });
+      chatModeButton.addEventListener("click", () => setMode("chat"));
+      agentModeButton.addEventListener("click", () => setMode("agent"));
+      stopAgentButton.addEventListener("click", stopAgentRun);
+      resumeAgentButton.addEventListener("click", resumeAgentRun);
+      newAgentButton.addEventListener("click", () => {
+        renderAgentRun(null);
+        setMode("agent");
+      });
       checkStatus();
+      loadCurrentAgentRun();
       setInterval(checkStatus, 10000);
       resizePrompt();
     </script>
