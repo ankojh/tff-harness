@@ -156,7 +156,10 @@ class ToolRun:
         ]
 
     def _requires_approval(self, name: str) -> bool:
-        return self.file_tools.requires_approval(name)
+        return (
+            self.file_tools.requires_approval(name)
+            or self.terminal_tools.requires_approval(name)
+        )
 
     def _display_arguments(
         self, name: str, arguments: dict[str, Any]

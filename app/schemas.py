@@ -22,6 +22,8 @@ class ModelStatus(BaseModel):
     base_url: str
     models: list[str]
     selected_model: Optional[str]
+    terminal_mode: str
+    sandbox_image: Optional[str] = None
     error: Optional[str] = None
 
 

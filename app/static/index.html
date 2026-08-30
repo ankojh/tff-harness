@@ -46,6 +46,14 @@
       }
       .clear:hover { color: var(--text); }
       .clear[hidden] { display: block; visibility: hidden; }
+      .runtime-status { display: flex; align-items: center; gap: 9px; }
+      .terminal-mode {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+      .terminal-mode.host { color: #e2a65c; }
       .status {
         display: block;
         width: 8px;
@@ -268,9 +276,12 @@
     <div class="app">
       <div class="toolbar">
         <button id="clearButton" class="clear" type="button" hidden>Clear</button>
-        <span id="status" class="status" role="status" title="Checking connection">
-          <span id="statusText" class="sr-only">Checking connection</span>
-        </span>
+        <div class="runtime-status">
+          <span id="terminalMode" class="terminal-mode">Sandbox</span>
+          <span id="status" class="status" role="status" title="Checking connection">
+            <span id="statusText" class="sr-only">Checking connection</span>
+          </span>
+        </div>
       </div>
       <main id="messages" class="messages" aria-live="polite">
         <div id="empty" class="empty">Ask anything</div>
@@ -295,6 +306,7 @@
       const clearButton = document.querySelector("#clearButton");
       const statusEl = document.querySelector("#status");
       const statusText = document.querySelector("#statusText");
+      const terminalModeEl = document.querySelector("#terminalMode");
       let messages = [];
       let controller = null;
       let selectedModel = null;
@@ -518,6 +530,13 @@
           const response = await fetch("/api/status");
           const status = await response.json();
           selectedModel = status.selected_model;
+          const modeLabels = {
+            sandbox: "Sandbox",
+            host: "Host shell",
+            disabled: "Shell off",
+          };
+          terminalModeEl.textContent = modeLabels[status.terminal_mode] || status.terminal_mode;
+          terminalModeEl.classList.toggle("host", status.terminal_mode === "host");
           statusEl.className = `status ${status.connected ? "online" : "offline"}`;
           const label = status.connected ? "Connected" : "Disconnected";
           statusText.textContent = label;

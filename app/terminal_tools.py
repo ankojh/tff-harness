@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from pathlib import Path, PurePosixPath
 import signal
 import time
+import uuid
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -13,6 +14,13 @@ DEFAULT_TIMEOUT_SECONDS = 30
 MAX_TIMEOUT_SECONDS = 120
 MAX_OUTPUT_BYTES = 64 * 1024
 READ_CHUNK_BYTES = 4096
+TERMINAL_MODES = {"sandbox", "host", "disabled"}
+DEFAULT_SANDBOX_IMAGE = "tff-harness-sandbox:latest"
+SANDBOX_WORKSPACE = "/workspace"
+SANDBOX_MEMORY = "512m"
+SANDBOX_CPUS = "1.0"
+SANDBOX_PIDS_LIMIT = 128
+SANDBOX_TMPFS_SIZE = "64m"
 
 
 class TerminalToolError(Exception):
@@ -20,19 +28,43 @@ class TerminalToolError(Exception):
 
 
 class TerminalTools:
-    def __init__(self, root: Path) -> None:
+    def __init__(
+        self,
+        root: Path,
+        mode: str = "sandbox",
+        sandbox_image: str = DEFAULT_SANDBOX_IMAGE,
+        docker_executable: str = "docker",
+    ) -> None:
         self.root = root.resolve()
+        normalized_mode = mode.strip().lower()
+        if normalized_mode not in TERMINAL_MODES:
+            choices = ", ".join(sorted(TERMINAL_MODES))
+            raise ValueError(f"terminal mode must be one of: {choices}")
+        if normalized_mode == "sandbox" and not sandbox_image.strip():
+            raise ValueError("sandbox_image must be a non-empty string")
+        self.mode = normalized_mode
+        self.sandbox_image = sandbox_image.strip()
+        self.docker_executable = docker_executable
 
     @property
     def definitions(self) -> list[dict[str, Any]]:
+        if self.mode == "disabled":
+            return []
+        execution_description = (
+            "inside an isolated, network-disabled container"
+            if self.mode == "sandbox"
+            else "on the host with the harness process's permissions"
+        )
         return [
             {
                 "type": "function",
                 "function": {
                     "name": "run_command",
                     "description": (
-                        "Run a shell command from the model workspace and return "
-                        "stdout, stderr, exit code, and duration."
+                        f"Run a shell command {execution_description}, starting "
+                        "from the model workspace, and return stdout, stderr, "
+                        "exit code, and duration. This operation requires user "
+                        "approval."
                     ),
                     "parameters": {
                         "type": "object",
@@ -66,7 +98,10 @@ class TerminalTools:
 
     @property
     def names(self) -> set[str]:
-        return {"run_command"}
+        return {"run_command"} if self.mode != "disabled" else set()
+
+    def requires_approval(self, name: str) -> bool:
+        return name in self.names
 
     @staticmethod
     def display_arguments(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -90,6 +125,7 @@ class TerminalTools:
             "stderr": stderr[:8000] if isinstance(stderr, str) else "",
             "timed_out": result.get("timed_out", False),
             "duration_ms": result.get("duration_ms"),
+            "execution_mode": result.get("execution_mode"),
             "truncated": bool(
                 result.get("stdout_truncated") or result.get("stderr_truncated")
             ),
@@ -108,6 +144,8 @@ class TerminalTools:
                 minimum=1,
                 maximum=MAX_TIMEOUT_SECONDS,
             )
+            if self.mode == "disabled":
+                raise TerminalToolError("Terminal access is disabled.")
             result = await self.run_command(command, cwd, timeout)
             ok = result["exit_code"] == 0 and not result["timed_out"]
             payload: dict[str, Any] = {"ok": ok, **result}
@@ -119,10 +157,15 @@ class TerminalTools:
         except TerminalToolError as exc:
             return json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False)
         except OSError as exc:
-            return json.dumps(
-                {"ok": False, "error": f"Could not run command: {exc}"},
-                ensure_ascii=False,
-            )
+            if self.mode == "sandbox":
+                message = (
+                    "Could not start the Docker sandbox. Ensure Docker is "
+                    f"installed and running, and that image '{self.sandbox_image}' "
+                    f"exists: {exc}"
+                )
+            else:
+                message = f"Could not run command: {exc}"
+            return json.dumps({"ok": False, "error": message}, ensure_ascii=False)
 
     async def run_command(
         self,
@@ -131,12 +174,113 @@ class TerminalTools:
         timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     ) -> dict[str, Any]:
         working_directory = self._resolve_cwd(cwd)
-        started = time.monotonic()
-        process = await asyncio.create_subprocess_exec(
+        if self.mode == "disabled":
+            raise TerminalToolError("Terminal access is disabled.")
+        if self.mode == "sandbox":
+            return await self._run_sandboxed(
+                command,
+                cwd,
+                timeout_seconds,
+            )
+        return await self._run_host(
+            command,
+            cwd,
+            timeout_seconds,
+            working_directory,
+        )
+
+    async def _run_host(
+        self,
+        command: str,
+        cwd: str,
+        timeout_seconds: int,
+        working_directory: Path,
+    ) -> dict[str, Any]:
+        return await self._run_process(
+            ["/bin/sh", "-lc", command],
+            command=command,
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+            process_cwd=working_directory,
+            execution_mode="host",
+        )
+
+    async def _run_sandboxed(
+        self,
+        command: str,
+        cwd: str,
+        timeout_seconds: int,
+    ) -> dict[str, Any]:
+        container_name = f"tff-sandbox-{uuid.uuid4().hex}"
+        container_cwd = (
+            SANDBOX_WORKSPACE
+            if cwd == "."
+            else f"{SANDBOX_WORKSPACE}/{PurePosixPath(cwd).as_posix()}"
+        )
+        mount = f"type=bind,source={self.root},target={SANDBOX_WORKSPACE}"
+        arguments = [
+            self.docker_executable,
+            "run",
+            "--rm",
+            "--init",
+            "--name",
+            container_name,
+            "--pull",
+            "never",
+            "--network",
+            "none",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
+            "--pids-limit",
+            str(SANDBOX_PIDS_LIMIT),
+            "--memory",
+            SANDBOX_MEMORY,
+            "--cpus",
+            SANDBOX_CPUS,
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
+            "--hostname",
+            "sandbox",
+            "--env",
+            "HOME=/tmp",
+            "--workdir",
+            container_cwd,
+            "--mount",
+            mount,
+            "--tmpfs",
+            f"/tmp:rw,nosuid,nodev,noexec,size={SANDBOX_TMPFS_SIZE}",
+            self.sandbox_image,
             "/bin/sh",
             "-lc",
             command,
-            cwd=str(working_directory),
+        ]
+        return await self._run_process(
+            arguments,
+            command=command,
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+            execution_mode="sandbox",
+            container_name=container_name,
+        )
+
+    async def _run_process(
+        self,
+        arguments: list[str],
+        *,
+        command: str,
+        cwd: str,
+        timeout_seconds: int,
+        execution_mode: str,
+        process_cwd: Path | None = None,
+        container_name: str | None = None,
+    ) -> dict[str, Any]:
+        started = time.monotonic()
+        process = await asyncio.create_subprocess_exec(
+            *arguments,
+            cwd=str(process_cwd) if process_cwd is not None else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
@@ -149,8 +293,12 @@ class TerminalTools:
         except asyncio.TimeoutError:
             timed_out = True
             await self._stop_process(process)
+            if container_name is not None:
+                await self._remove_container(container_name)
         except asyncio.CancelledError:
             await self._stop_process(process)
+            if container_name is not None:
+                await self._remove_container(container_name)
             await asyncio.gather(stdout_task, stderr_task)
             raise
 
@@ -167,7 +315,22 @@ class TerminalTools:
             "duration_ms": duration_ms,
             "stdout_truncated": stdout_truncated,
             "stderr_truncated": stderr_truncated,
+            "execution_mode": execution_mode,
         }
+
+    async def _remove_container(self, name: str) -> None:
+        try:
+            process = await asyncio.create_subprocess_exec(
+                self.docker_executable,
+                "rm",
+                "--force",
+                name,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(process.wait(), timeout=3.0)
+        except (OSError, asyncio.TimeoutError):
+            return
 
     @staticmethod
     async def _read_output(

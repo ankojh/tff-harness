@@ -14,6 +14,7 @@ async def test_index_serves_chat_ui():
     assert "<title>Chat</title>" in response.text
     assert 'fetch("/api/chat"' in response.text
     assert '<script src="/static/markdown.js"></script>' in response.text
+    assert 'id="terminalMode"' in response.text
     assert "Turbo Fair Field" not in response.text
     assert "data-chat-panel" not in response.text
 
@@ -42,6 +43,8 @@ async def test_status_reports_offline():
 
     assert response.status_code == 200
     assert response.json()["connected"] is False
+    assert response.json()["terminal_mode"] == "sandbox"
+    assert response.json()["sandbox_image"] == "tff-harness-sandbox:latest"
 
 
 @pytest.mark.asyncio

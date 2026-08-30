@@ -34,7 +34,11 @@ def create_app(
         FileTools(configured.model_file_root),
         PdfTools(configured.model_file_root),
         WebTools(web_transport),
-        TerminalTools(configured.model_file_root),
+        TerminalTools(
+            configured.model_file_root,
+            mode=configured.terminal_mode,
+            sandbox_image=configured.sandbox_image,
+        ),
         StateTools(state_file),
         approvals,
     )

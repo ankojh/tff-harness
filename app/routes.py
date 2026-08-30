@@ -40,6 +40,12 @@ def create_router(
                 base_url=settings.model_base_url,
                 models=models,
                 selected_model=selected_model,
+                terminal_mode=settings.terminal_mode,
+                sandbox_image=(
+                    settings.sandbox_image
+                    if settings.terminal_mode == "sandbox"
+                    else None
+                ),
             )
         except ModelGatewayError as exc:
             return ModelStatus(
@@ -47,6 +53,12 @@ def create_router(
                 base_url=settings.model_base_url,
                 models=[],
                 selected_model=settings.model_name,
+                terminal_mode=settings.terminal_mode,
+                sandbox_image=(
+                    settings.sandbox_image
+                    if settings.terminal_mode == "sandbox"
+                    else None
+                ),
                 error=str(exc),
             )
 

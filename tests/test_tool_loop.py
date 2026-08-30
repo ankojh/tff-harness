@@ -134,7 +134,7 @@ async def test_fetch_url_tool_runs_and_model_receives_page(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_command_runs_without_approval_and_model_receives_output(tmp_path):
+async def test_command_requires_approval_and_model_receives_output(tmp_path):
     model_requests = []
 
     def model_handler(request):
@@ -170,7 +170,7 @@ async def test_command_runs_without_approval_and_model_receives_output(tmp_path)
         FileTools(tmp_path),
         PdfTools(tmp_path),
         WebTools(),
-        TerminalTools(tmp_path),
+        TerminalTools(tmp_path, mode="host"),
         StateTools(tmp_path / ".state.json"),
         approvals,
     )
@@ -179,13 +179,20 @@ async def test_command_runs_without_approval_and_model_receives_output(tmp_path)
     )
     run = await loop.start(request)
     events = []
-
-    async for raw_event in run.events():
+    event_stream = run.events()
+    while True:
+        raw_event = await event_stream.__anext__()
         text = raw_event.decode()
         events.append(text)
+        if '"harness_event":"tool_approval"' in text:
+            approval_event = json.loads(text.removeprefix("data: "))
+            assert approvals.decide(approval_event["approval_id"], True)
+            break
+    async for event in event_stream:
+        events.append(event.decode())
 
-    assert not any('"harness_event":"tool_approval"' in event for event in events)
-    assert any('"harness_event":"tool_started"' in event for event in events)
+    assert any('"harness_event":"tool_approval"' in event for event in events)
+    assert not any('"harness_event":"tool_started"' in event for event in events)
     assert any('"harness_event":"tool_result"' in event for event in events)
     assert any('"stdout":"terminal-output"' in event for event in events)
     tool_result = model_requests[1]["messages"][-1]

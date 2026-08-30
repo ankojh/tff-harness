@@ -81,14 +81,44 @@ information outside the machine.
 ## Terminal tool
 
 The model can request `run_command` to execute a shell command starting from
-`model_workspace/` (or a workspace-relative subdirectory). Commands run without
-an approval prompt. Results include stdout, stderr, exit code, duration, and
-timeout/truncation metadata. Commands time out after 30 seconds by default, with
-a maximum requested timeout of 120 seconds, and each output stream is capped at
-64 KB.
+`model_workspace/` (or a workspace-relative subdirectory). Every command pauses
+for approval in the chat UI. Results include stdout, stderr, exit code, duration,
+execution mode, and timeout/truncation metadata. Commands time out after 30
+seconds by default, with a maximum requested timeout of 120 seconds, and each
+output stream is capped at 64 KB.
 
-This is command execution, not an operating-system sandbox: a command can still
-reference absolute paths or network resources available to the app process.
+Terminal execution has three modes, selected with `MODEL_TERMINAL_MODE`:
+
+- `sandbox` (default) runs each approved command in a fresh Docker container.
+- `host` is an explicit compatibility mode that runs approved commands with the
+  harness process's host permissions.
+- `disabled` removes `run_command` from the tools offered to the model.
+
+Build the default sandbox image before using terminal commands:
+
+```bash
+docker build -t tff-harness-sandbox:latest -f sandbox/Dockerfile .
+```
+
+Set `MODEL_SANDBOX_IMAGE` to use a different prebuilt local image. Sandbox runs
+use `--pull never`, so tool execution never downloads an image implicitly.
+
+### Sandbox boundary
+
+The Docker backend mounts only the model workspace at `/workspace` and runs with
+the invoking user's numeric UID and GID. The container has no network, a
+read-only root filesystem, a bounded temporary filesystem, all Linux
+capabilities dropped, `no-new-privileges`, and CPU, memory, process-count,
+output, and wall-time limits. The host home directory, environment variables,
+credentials, and Docker socket are not passed into the container.
+
+The workspace itself is deliberately writable, so an approved command can
+create, replace, or delete anything inside it. Docker and the selected image are
+part of the trusted computing base. Do not mount the Docker socket or sensitive
+host paths into a custom sandbox image. A bind-mounted workspace does not have a
+separate storage quota, so keep the model workspace on a volume with adequate
+host-level free-space monitoring. Public research remains available through the
+separately bounded web tools rather than container networking.
 
 ## Persistent state
 
