@@ -103,6 +103,30 @@ class TerminalTools:
     def requires_approval(self, name: str) -> bool:
         return name in self.names
 
+    async def readiness(self) -> tuple[bool | None, str | None]:
+        if self.mode != "sandbox":
+            return None, None
+        try:
+            process = await asyncio.create_subprocess_exec(
+                self.docker_executable,
+                "image",
+                "inspect",
+                self.sandbox_image,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                _, stderr = await asyncio.wait_for(process.communicate(), timeout=3)
+            except asyncio.TimeoutError:
+                await self._stop_process(process)
+                return False, "Docker did not respond to the sandbox readiness check."
+        except OSError as exc:
+            return False, f"Docker is unavailable: {exc}"
+        if process.returncode == 0:
+            return True, None
+        detail = stderr.decode("utf-8", errors="replace").strip()[:2000]
+        return False, detail or f"Sandbox image '{self.sandbox_image}' is unavailable."
+
     @staticmethod
     def display_arguments(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         command = arguments.get("command")

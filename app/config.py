@@ -27,6 +27,17 @@ def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
     return value
 
 
+def _bounded_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
 def validate_agent_state_path(file_root: Path, path: Path) -> Path:
     file_root = file_root.resolve()
     path = path.resolve()
@@ -51,6 +62,30 @@ def _agent_state_path(file_root: Path) -> Path:
     return validate_agent_state_path(file_root, path)
 
 
+def _memory_path(file_root: Path) -> Path:
+    configured = os.getenv("MODEL_MEMORY_FILE", "").strip()
+    path = (
+        Path(configured).expanduser().resolve()
+        if configured
+        else (
+            file_root.parent / ".tff_memory" / f"{file_root.name}.json"
+        ).resolve()
+    )
+    return validate_agent_state_path(file_root, path)
+
+
+def _eval_path(file_root: Path) -> Path:
+    configured = os.getenv("MODEL_EVAL_FILE", "").strip()
+    path = (
+        Path(configured).expanduser().resolve()
+        if configured
+        else (
+            file_root.parent / ".tff_evals" / f"{file_root.name}.json"
+        ).resolve()
+    )
+    return validate_agent_state_path(file_root, path)
+
+
 @dataclass(frozen=True)
 class Settings:
     model_base_url: str
@@ -61,6 +96,10 @@ class Settings:
     terminal_mode: str = "sandbox"
     sandbox_image: str = "tff-harness-sandbox:latest"
     agent_state_file: Path | None = None
+    memory_file: Path | None = None
+    eval_file: Path | None = None
+    model_input_cost_per_million: float = 0.0
+    model_output_cost_per_million: float = 0.0
     agent_max_tool_rounds: int = 32
     agent_max_tool_calls: int = 64
     agent_max_seconds: int = 900
@@ -94,6 +133,14 @@ class Settings:
                 or "tff-harness-sandbox:latest"
             ),
             agent_state_file=_agent_state_path(file_root),
+            memory_file=_memory_path(file_root),
+            eval_file=_eval_path(file_root),
+            model_input_cost_per_million=_bounded_float(
+                "MODEL_INPUT_COST_PER_MILLION", 0.0, 0.0, 100_000.0
+            ),
+            model_output_cost_per_million=_bounded_float(
+                "MODEL_OUTPUT_COST_PER_MILLION", 0.0, 0.0, 100_000.0
+            ),
             agent_max_tool_rounds=_bounded_int(
                 "AGENT_MAX_TOOL_ROUNDS", 32, 1, 100
             ),

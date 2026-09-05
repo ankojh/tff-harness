@@ -72,10 +72,24 @@
         text-transform: uppercase;
       }
       .terminal-mode.host { color: #e2a65c; }
+      .terminal-mode.unready { color: var(--error); }
+      .memory-mode {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+      .memory-mode:hover { color: var(--text); }
       .agent-panel {
-        width: min(720px, calc(100% - 40px));
+        width: min(1120px, calc(100% - 40px));
+        max-height: min(66vh, 760px);
         margin: 8px auto 0;
         padding: 13px 15px;
+        overflow: auto;
         border: 1px solid var(--border);
         border-radius: 14px;
         background: var(--surface);
@@ -104,7 +118,132 @@
       .agent-evidence { margin-top: 9px; }
       .agent-evidence-label { color: var(--muted); font-size: 10px; text-transform: uppercase; }
       .agent-evidence-list { margin: 5px 0 0; padding-left: 18px; color: var(--muted); font-size: 11px; }
+      .agent-workers { margin-top: 9px; }
+      .graph-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .graph-toolbar-actions { display: flex; gap: 5px; }
+      .graph-view-button {
+        padding: 3px 7px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--background);
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 9px;
+      }
+      .graph-view-button.active { color: var(--text); border-color: #55564f; }
+      .graph-canvas {
+        margin-top: 7px;
+        padding: 10px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--background);
+      }
+      .graph-stage { position: relative; display: flex; gap: 34px; min-height: 110px; }
+      .graph-edges { position: absolute; inset: 0; z-index: 0; overflow: visible; pointer-events: none; }
+      .graph-edge { fill: none; stroke: #454740; stroke-width: 1.5; }
+      .graph-column { position: relative; z-index: 1; display: grid; align-content: start; gap: 9px; width: 180px; flex: 0 0 180px; }
+      .graph-node {
+        width: 100%;
+        padding: 9px 10px;
+        border: 1px solid var(--border);
+        border-left: 3px solid #718fd8;
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        text-align: left;
+      }
+      .graph-node.completed, .graph-node.integrated, .graph-node.no_changes { border-left-color: #6fbb88; }
+      .graph-node.failed, .graph-node.blocked, .graph-node.conflict,
+      .graph-node.discarded, .graph-node.rolled_back { border-left-color: var(--error); }
+      .graph-node.paused, .graph-node.skipped, .graph-node.waiting_for_integration { border-left-color: #e2a65c; }
+      .graph-node-key { display: block; color: var(--muted); font: 9px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .graph-node-title { display: block; margin-top: 3px; font-size: 11px; line-height: 1.3; }
+      .graph-node-meta { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+      .graph-timeline { display: grid; gap: 0; margin-top: 7px; padding: 4px 0; }
+      .timeline-item { position: relative; display: grid; grid-template-columns: 80px 1fr; gap: 12px; padding: 7px 0 7px 17px; margin-left: 5px; border-left: 1px solid var(--border); font-size: 10px; }
+      .timeline-item::before { content: ""; position: absolute; left: -4px; top: 11px; width: 7px; height: 7px; border-radius: 50%; background: #718fd8; }
+      .timeline-time { color: var(--muted); }
+      .timeline-event { overflow-wrap: anywhere; }
+      .artifact-chip { display: inline-flex; margin: 3px 4px 0 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: #9db8ff; cursor: pointer; font-size: 9px; }
+      .agent-worker-list { display: grid; gap: 5px; margin: 5px 0 0; padding: 0; list-style: none; }
+      .agent-worker { display: flex; align-items: baseline; gap: 7px; color: var(--muted); font-size: 11px; }
+      .node-action { margin-left: auto; padding: 1px 5px; border: 1px solid var(--border); border-radius: 5px; background: var(--background); color: var(--muted); cursor: pointer; font-size: 9px; }
+      .node-action:hover { color: var(--text); }
+      .agent-worker-status { flex: 0 0 auto; color: #9db8ff; font-size: 9px; text-transform: uppercase; }
+      .agent-worker.completed .agent-worker-status { color: #6fbb88; }
+      .agent-worker.integrated .agent-worker-status { color: #6fbb88; }
+      .agent-worker.pending .agent-worker-status { color: #e2a65c; }
+      .agent-worker.conflict .agent-worker-status { color: var(--error); }
+      .agent-worker.failed .agent-worker-status,
+      .agent-worker.stopped .agent-worker-status { color: var(--error); }
+      .agent-worker.waiting_for_integration .agent-worker-status { color: #e2a65c; }
+      .agent-worker.paused .agent-worker-status,
+      .agent-worker.skipped .agent-worker-status { color: #e2a65c; }
+      .agent-worker.blocked .agent-worker-status,
+      .agent-worker.discarded .agent-worker-status,
+      .agent-worker.rolled_back .agent-worker-status { color: var(--error); }
       .agent-meta { margin-top: 9px; color: var(--muted); font-size: 10px; }
+      .agent-log { display: grid; gap: 5px; margin: 10px 0 0; padding: 9px 0 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+      .agent-log[hidden] { display: none; }
+      .agent-log-item { display: flex; justify-content: space-between; gap: 12px; }
+      .agent-log-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .operator-dialog {
+        width: min(780px, calc(100% - 28px));
+        max-height: min(84vh, 820px);
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      .operator-dialog::backdrop { background: rgba(0, 0, 0, 0.66); }
+      .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+      .dialog-title { font-size: 13px; }
+      .dialog-close { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 18px; }
+      .dialog-content { max-height: calc(84vh - 52px); padding: 14px; overflow: auto; }
+      .operator-grid { display: grid; gap: 10px; }
+      .operator-field { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+      .operator-field input, .operator-field textarea, .operator-field select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        outline: 0;
+        background: var(--background);
+        color: var(--text);
+        font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .operator-field textarea { min-height: 180px; resize: vertical; }
+      .operator-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+      .operator-row input, .operator-row select {
+        padding: 7px 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--background);
+        color: var(--text);
+        font-size: 10px;
+      }
+      .operator-card { padding: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); }
+      .operator-card + .operator-card { margin-top: 8px; }
+      .operator-card-title { font-size: 11px; }
+      .operator-card-meta { margin-top: 4px; color: var(--muted); font-size: 9px; }
+      .operator-pre { max-height: 480px; margin: 8px 0 0; padding: 11px; overflow: auto; border-radius: 8px; background: var(--background); white-space: pre-wrap; overflow-wrap: anywhere; font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .comparison-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      .comparison-table th, .comparison-table td { padding: 7px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+      .agent-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 15px;
+        width: min(720px, 100%);
+        margin: 0 auto 7px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .agent-options[hidden] { display: none; }
+      .agent-options label { display: flex; align-items: center; gap: 6px; }
       .status {
         display: block;
         width: 8px;
@@ -224,6 +363,13 @@
         overflow-wrap: anywhere;
         font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
       }
+      .change-review { display: grid; gap: 9px; margin-top: 10px; }
+      .review-file { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+      .review-file summary { padding: 9px 10px; cursor: pointer; font-size: 11px; }
+      .review-file.conflict summary { color: var(--error); }
+      .review-options { display: grid; gap: 6px; padding: 0 10px 9px; font-size: 11px; }
+      .review-hunks { display: grid; gap: 4px; padding-left: 18px; color: var(--muted); }
+      .review-diff { max-height: 420px; margin: 0; border: 0; border-radius: 0; }
       .tool-actions { display: flex; gap: 7px; margin-top: 10px; }
       .tool-action {
         padding: 6px 10px;
@@ -332,6 +478,7 @@
           <button id="agentMode" class="mode-option" type="button">Agent</button>
         </div>
         <div class="runtime-status">
+          <button id="memoryStatus" class="memory-mode" type="button" title="Open hybrid memory browser">Memory</button>
           <span id="terminalMode" class="terminal-mode">Sandbox</span>
           <span id="status" class="status" role="status" title="Checking connection">
             <span id="statusText" class="sr-only">Checking connection</span>
@@ -345,22 +492,52 @@
             <div id="agentGoal" class="agent-goal"></div>
           </div>
           <div class="agent-actions">
+            <button id="templatesAgent" class="agent-action" type="button">Templates</button>
+            <button id="historyAgent" class="agent-action" type="button">History</button>
+            <button id="activityAgent" class="agent-action" type="button">Activity</button>
+            <button id="observeAgent" class="agent-action" type="button">Observe</button>
+            <button id="evalsAgent" class="agent-action" type="button">Evals</button>
+            <button id="compareAgent" class="agent-action" type="button">Compare</button>
+            <button id="cloneAgent" class="agent-action" type="button">Clone</button>
+            <button id="debugAgent" class="agent-action" type="button">Debug</button>
+            <button id="steerAgent" class="agent-action" type="button" hidden>Steer</button>
             <button id="newAgent" class="agent-action" type="button" hidden>New</button>
             <button id="resumeAgent" class="agent-action" type="button" hidden>Resume</button>
             <button id="stopAgent" class="agent-action" type="button" hidden>Stop</button>
           </div>
         </div>
         <ol id="agentPlan" class="agent-plan"></ol>
+        <div id="agentGraph" class="agent-workers" hidden>
+          <div class="graph-toolbar">
+            <div id="agentGraphLabel" class="agent-evidence-label">Orchestration</div>
+            <div class="graph-toolbar-actions">
+              <button id="graphDagView" class="graph-view-button active" type="button">DAG</button>
+              <button id="graphTimelineView" class="graph-view-button" type="button">Timeline</button>
+            </div>
+          </div>
+          <div id="agentGraphCanvas" class="graph-canvas"></div>
+          <div id="agentGraphTimeline" class="graph-timeline" hidden></div>
+        </div>
+        <div id="agentWorkers" class="agent-workers" hidden>
+          <div class="agent-evidence-label">Workers</div>
+          <ul id="agentWorkerList" class="agent-worker-list"></ul>
+        </div>
         <div id="agentEvidence" class="agent-evidence" hidden>
           <div class="agent-evidence-label">Verification</div>
           <ul id="agentEvidenceList" class="agent-evidence-list"></ul>
         </div>
         <div id="agentMeta" class="agent-meta"></div>
+        <div id="agentLog" class="agent-log" hidden></div>
       </section>
       <main id="messages" class="messages" aria-live="polite">
         <div id="empty" class="empty">Ask anything</div>
       </main>
       <div class="composer-area">
+        <div id="agentOptions" class="agent-options" hidden>
+          <span>Optional run grants:</span>
+          <label><input id="grantWorkspace" type="checkbox" /> workspace changes</label>
+          <label><input id="grantTerminal" type="checkbox" /> terminal commands</label>
+        </div>
         <form id="chatForm" class="composer">
           <textarea id="prompt" rows="1" placeholder="Message" aria-label="Message" autofocus></textarea>
           <button id="sendButton" class="send" type="submit" disabled aria-label="Send message">
@@ -370,6 +547,13 @@
         </form>
       </div>
     </div>
+    <dialog id="operatorDialog" class="operator-dialog">
+      <div class="dialog-head">
+        <div id="operatorDialogTitle" class="dialog-title">Operator tools</div>
+        <button id="operatorDialogClose" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="operatorDialogContent" class="dialog-content"></div>
+    </dialog>
     <script src="/static/markdown.js"></script>
     <script>
       const messagesEl = document.querySelector("#messages");
@@ -381,23 +565,50 @@
       const statusEl = document.querySelector("#status");
       const statusText = document.querySelector("#statusText");
       const terminalModeEl = document.querySelector("#terminalMode");
+      const memoryStatusEl = document.querySelector("#memoryStatus");
       const chatModeButton = document.querySelector("#chatMode");
       const agentModeButton = document.querySelector("#agentMode");
       const agentPanel = document.querySelector("#agentPanel");
       const agentStatusEl = document.querySelector("#agentStatus");
       const agentGoalEl = document.querySelector("#agentGoal");
       const agentPlanEl = document.querySelector("#agentPlan");
+      const agentGraphEl = document.querySelector("#agentGraph");
+      const agentGraphLabelEl = document.querySelector("#agentGraphLabel");
+      const agentGraphCanvasEl = document.querySelector("#agentGraphCanvas");
+      const agentGraphTimelineEl = document.querySelector("#agentGraphTimeline");
+      const graphDagViewButton = document.querySelector("#graphDagView");
+      const graphTimelineViewButton = document.querySelector("#graphTimelineView");
+      const agentWorkersEl = document.querySelector("#agentWorkers");
+      const agentWorkerListEl = document.querySelector("#agentWorkerList");
       const agentEvidenceEl = document.querySelector("#agentEvidence");
       const agentEvidenceListEl = document.querySelector("#agentEvidenceList");
       const agentMetaEl = document.querySelector("#agentMeta");
+      const agentLogEl = document.querySelector("#agentLog");
+      const agentOptionsEl = document.querySelector("#agentOptions");
+      const grantWorkspaceEl = document.querySelector("#grantWorkspace");
+      const grantTerminalEl = document.querySelector("#grantTerminal");
       const stopAgentButton = document.querySelector("#stopAgent");
       const resumeAgentButton = document.querySelector("#resumeAgent");
       const newAgentButton = document.querySelector("#newAgent");
+      const steerAgentButton = document.querySelector("#steerAgent");
+      const historyAgentButton = document.querySelector("#historyAgent");
+      const activityAgentButton = document.querySelector("#activityAgent");
+      const observeAgentButton = document.querySelector("#observeAgent");
+      const evalsAgentButton = document.querySelector("#evalsAgent");
+      const templatesAgentButton = document.querySelector("#templatesAgent");
+      const compareAgentButton = document.querySelector("#compareAgent");
+      const cloneAgentButton = document.querySelector("#cloneAgent");
+      const debugAgentButton = document.querySelector("#debugAgent");
+      const operatorDialog = document.querySelector("#operatorDialog");
+      const operatorDialogTitleEl = document.querySelector("#operatorDialogTitle");
+      const operatorDialogContentEl = document.querySelector("#operatorDialogContent");
+      const operatorDialogCloseButton = document.querySelector("#operatorDialogClose");
       let messages = [];
       let controller = null;
       let selectedModel = null;
       let interactionMode = "chat";
       let activeAgentRun = null;
+      let graphView = "dag";
       const toolCards = new Map();
 
       function setStreaming(streaming) {
@@ -407,6 +618,10 @@
         sendButton.disabled = !streaming && !promptEl.value.trim();
         chatModeButton.disabled = streaming;
         agentModeButton.disabled = streaming;
+        updateAgentOptions();
+      }
+      function updateAgentOptions() {
+        agentOptionsEl.hidden = interactionMode !== "agent" || Boolean(activeAgentRun) || Boolean(controller);
       }
       function setMode(mode) {
         if (controller || !["chat", "agent"].includes(mode)) return;
@@ -417,12 +632,15 @@
           ? (activeAgentRun?.resumable ? "Add guidance to resume" : "Describe a goal")
           : "Message";
         promptEl.setAttribute("aria-label", mode === "agent" ? "Agent goal" : "Message");
+        updateAgentOptions();
         promptEl.focus();
       }
       function renderAgentRun(run) {
         if (!run) {
           activeAgentRun = null;
           agentPanel.hidden = true;
+          agentLogEl.hidden = true;
+          updateAgentOptions();
           return;
         }
         activeAgentRun = run;
@@ -438,34 +656,409 @@
           if (step.note) item.title = step.note;
           agentPlanEl.append(item);
         }
+        const graph = run.task_graph;
+        const graphNodes = graph ? Object.values(graph.nodes || {}) : [];
+        agentGraphEl.hidden = graphNodes.length === 0;
+        if (graph) {
+          const templateLabel = graph.template
+            ? ` · ${graph.template}@${graph.template_version || 1}`
+            : "";
+          agentGraphLabelEl.textContent = `Orchestration · ${graph.status.replaceAll("_", " ")} · revision ${graph.revision}${templateLabel}`;
+          renderGraph(run);
+        }
+        const workerTasks = run.worker_tasks || [];
+        agentWorkersEl.hidden = workerTasks.length === 0;
+        agentWorkerListEl.replaceChildren();
+        for (const task of workerTasks) {
+          const item = document.createElement("li");
+          const visibleIntegrationStates = [
+            "pending", "conflict", "integrated", "rolled_back", "discarded", "no_changes",
+          ];
+          const workerState = visibleIntegrationStates.includes(task.integration_status)
+            ? task.integration_status
+            : task.status;
+          item.className = `agent-worker ${workerState}`;
+          const status = document.createElement("span");
+          status.className = "agent-worker-status";
+          status.textContent = workerState.replaceAll("_", " ");
+          const text = document.createElement("span");
+          const changeCount = (task.change_set || []).length;
+          const reviewed = task.review_decision
+            ? ` · ${task.review_decision.integrated_change_count}/${task.review_decision.original_change_count} reviewed`
+            : "";
+          text.textContent = `${task.role}: ${task.title}${changeCount ? ` · ${changeCount} changes` : ""}${reviewed}`;
+          const changeSummary = (task.change_set || [])
+            .map((change) => `${change.action}: ${change.path}`)
+            .join("\n");
+          text.title = [
+            `Mode: ${task.mode}`,
+            `Scope: ${task.scope}`,
+            task.result || task.error || "",
+            task.review_decision
+              ? `Accepted files: ${task.review_decision.accepted_paths.join(", ") || "none"}\nRejected files: ${task.review_decision.rejected_paths.join(", ") || "none"}`
+              : "",
+            changeSummary,
+          ].filter(Boolean).join("\n\n");
+          item.append(status, text);
+          agentWorkerListEl.append(item);
+        }
         const evidence = run.verification_evidence || [];
         agentEvidenceEl.hidden = evidence.length === 0;
         agentEvidenceListEl.replaceChildren();
-        for (const text of evidence) {
+        for (const evidenceItem of evidence) {
           const item = document.createElement("li");
-          item.textContent = text;
+          item.textContent = typeof evidenceItem === "string" ? evidenceItem : evidenceItem.text;
+          if (typeof evidenceItem === "object" && evidenceItem?.tool) {
+            item.title = `${evidenceItem.tool} receipt ${evidenceItem.receipt_id}`;
+          }
           agentEvidenceListEl.append(item);
         }
         const usage = run.usage || {};
         const budget = run.budgets || {};
         agentMetaEl.textContent = [
+          "Agent v9.0",
           `${usage.tool_rounds || 0}/${budget.max_tool_rounds || 0} rounds`,
           `${usage.tool_calls || 0}/${budget.max_tool_calls || 0} tools`,
           `${usage.elapsed_seconds || 0}/${budget.max_seconds || 0}s`,
+          `${usage.total_tokens || 0} tokens${usage.provider_token_calls ? " measured" : " estimated"}`,
+          `${(usage.cost_usd || 0).toFixed(6)} USD ${usage.cost_source || "unpriced"}`,
+          `${usage.latency_ms || 0}ms wall latency`,
+          run.evaluation ? `quality ${run.evaluation.quality_score} · safety ${run.evaluation.safety_score}` : "eval pending",
+          `${run.failure_count || 0} classified failures`,
           `${evidence.length} verification records`,
+          `${run.event_count || 0} events`,
+          `${(run.tool_receipts || []).length} receipts`,
+          `${(run.plan_revisions || []).length} plan revisions`,
+          `${(run.context_compactions || []).length} context compactions`,
+          `${run.pending_steering_count || 0} steering queued`,
+          `${workerTasks.length}/32 worker tasks`,
+          `${workerTasks.filter((task) => task.integration_status === "pending").length} change sets pending`,
+          graph ? `${graph.usage.model_rounds}/${graph.budgets.max_model_rounds} graph rounds` : "no task graph",
+          (run.grants || []).length ? `grants: ${run.grants.join(", ")}` : "per-action approval",
         ].join(" · ");
         const active = ["planning", "working", "waiting_for_approval", "verifying"].includes(run.status);
+        cloneAgentButton.disabled = active || Boolean(controller);
+        debugAgentButton.disabled = false;
         stopAgentButton.hidden = !active;
         stopAgentButton.disabled = Boolean(run.stop_requested);
         resumeAgentButton.hidden = !run.resumable;
         resumeAgentButton.disabled = Boolean(controller);
         newAgentButton.hidden = active;
+        steerAgentButton.hidden = !active;
+        steerAgentButton.disabled = !promptEl.value.trim();
+        updateAgentOptions();
         if (interactionMode === "agent" && !controller) setMode("agent");
+      }
+      function showOperatorDialog(title, content) {
+        operatorDialogTitleEl.textContent = title;
+        operatorDialogContentEl.replaceChildren(content);
+        if (!operatorDialog.open) operatorDialog.showModal();
+      }
+      function graphNodeDepth(nodes, key, memo = new Map(), visiting = new Set()) {
+        if (memo.has(key)) return memo.get(key);
+        if (visiting.has(key)) return 0;
+        visiting.add(key);
+        const node = nodes[key];
+        const depth = !node || !(node.depends_on || []).length
+          ? 0
+          : 1 + Math.max(...node.depends_on.map((dependency) => graphNodeDepth(nodes, dependency, memo, visiting)));
+        visiting.delete(key);
+        memo.set(key, depth);
+        return depth;
+      }
+      function renderGraph(run) {
+        const graph = run.task_graph;
+        if (!graph) return;
+        const nodes = graph.nodes || {};
+        graphDagViewButton.classList.toggle("active", graphView === "dag");
+        graphTimelineViewButton.classList.toggle("active", graphView === "timeline");
+        agentGraphCanvasEl.hidden = graphView !== "dag";
+        agentGraphTimelineEl.hidden = graphView !== "timeline";
+        if (graphView === "timeline") {
+          loadGraphTimeline();
+          return;
+        }
+        const memo = new Map();
+        const columns = new Map();
+        for (const node of Object.values(nodes)) {
+          const depth = graphNodeDepth(nodes, node.key, memo);
+          if (!columns.has(depth)) columns.set(depth, []);
+          columns.get(depth).push(node);
+        }
+        const stage = document.createElement("div");
+        stage.className = "graph-stage";
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.classList.add("graph-edges");
+        stage.append(svg);
+        for (const depth of [...columns.keys()].sort((left, right) => left - right)) {
+          const column = document.createElement("div");
+          column.className = "graph-column";
+          for (const node of columns.get(depth).sort((left, right) => left.created_at.localeCompare(right.created_at))) {
+            const card = document.createElement("button");
+            card.type = "button";
+            card.className = `graph-node ${node.status}`;
+            card.dataset.nodeKey = node.key;
+            const key = document.createElement("span");
+            key.className = "graph-node-key";
+            key.textContent = `${node.key} · ${node.status.replaceAll("_", " ")}`;
+            const title = document.createElement("span");
+            title.className = "graph-node-title";
+            title.textContent = node.title;
+            const meta = document.createElement("span");
+            meta.className = "graph-node-meta";
+            meta.textContent = [
+              node.kind || "task",
+              node.role,
+              (node.artifacts || []).length ? `${node.artifacts.length} artifact(s)` : "",
+            ].filter(Boolean).join(" · ");
+            card.append(key, title, meta);
+            card.addEventListener("click", () => openGraphNode(node.key));
+            column.append(card);
+          }
+          stage.append(column);
+        }
+        agentGraphCanvasEl.replaceChildren(stage);
+        requestAnimationFrame(() => drawGraphEdges(stage, svg, nodes));
+      }
+      function drawGraphEdges(stage, svg, nodes) {
+        const stageBox = stage.getBoundingClientRect();
+        svg.setAttribute("width", String(stage.scrollWidth));
+        svg.setAttribute("height", String(stage.scrollHeight));
+        svg.replaceChildren();
+        const cards = new Map(
+          [...stage.querySelectorAll(".graph-node")].map((card) => [card.dataset.nodeKey, card]),
+        );
+        for (const node of Object.values(nodes)) {
+          const target = cards.get(node.key);
+          if (!target) continue;
+          const targetBox = target.getBoundingClientRect();
+          for (const dependency of node.depends_on || []) {
+            const source = cards.get(dependency);
+            if (!source) continue;
+            const sourceBox = source.getBoundingClientRect();
+            const startX = sourceBox.right - stageBox.left;
+            const startY = sourceBox.top + sourceBox.height / 2 - stageBox.top;
+            const endX = targetBox.left - stageBox.left;
+            const endY = targetBox.top + targetBox.height / 2 - stageBox.top;
+            const bend = Math.max(18, (endX - startX) / 2);
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.classList.add("graph-edge");
+            path.setAttribute("d", `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`);
+            svg.append(path);
+          }
+        }
+      }
+      function graphNodeSpecification(node) {
+        const specification = {
+          key: node.key,
+          title: node.title,
+          instruction: node.instruction,
+          role: node.role,
+          scope: node.scope,
+          mode: node.mode,
+          depends_on: node.depends_on || [],
+          kind: node.kind || "task",
+        };
+        if (node.model) specification.model = node.model;
+        if (node.node_budgets) specification.budgets = node.node_budgets;
+        for (const field of ["condition", "join", "map", "loop"]) {
+          if (node[field]) specification[field] = node[field];
+        }
+        return specification;
+      }
+      function openGraphNode(key) {
+        const node = activeAgentRun?.task_graph?.nodes?.[key];
+        if (!node) return;
+        const content = document.createElement("div");
+        content.className = "operator-grid";
+        const details = document.createElement("div");
+        details.className = "operator-card";
+        const heading = document.createElement("div");
+        heading.className = "operator-card-title";
+        heading.textContent = `${node.title} · ${node.status.replaceAll("_", " ")}`;
+        const meta = document.createElement("div");
+        meta.className = "operator-card-meta";
+        meta.textContent = [
+          `${node.kind || "task"} · ${node.role} · ${node.mode}`,
+          `scope ${node.scope}`,
+          (node.depends_on || []).length ? `after ${node.depends_on.join(", ")}` : "root node",
+          node.model ? `model ${node.model}` : "inherited model",
+          node.attempt_count ? `${node.attempt_count} attempt(s)` : "",
+          node.error || "",
+        ].filter(Boolean).join(" · ");
+        details.append(heading, meta);
+        const instruction = document.createElement("pre");
+        instruction.className = "operator-pre";
+        instruction.textContent = node.instruction;
+        details.append(instruction);
+        content.append(details);
+        if ((node.artifacts || []).length) {
+          const artifacts = document.createElement("div");
+          artifacts.className = "operator-card";
+          const title = document.createElement("div");
+          title.className = "operator-card-title";
+          title.textContent = "Artifacts";
+          artifacts.append(title);
+          for (const artifact of node.artifacts) {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "artifact-chip";
+            chip.textContent = `${artifact.name} · ${artifact.type} · ${artifact.bytes} B`;
+            chip.addEventListener("click", () => openArtifact(node.key, artifact.name));
+            artifacts.append(chip);
+          }
+          content.append(artifacts);
+        }
+        const actions = document.createElement("div");
+        actions.className = "operator-row";
+        if (activeAgentRun.resumable) {
+          let action = null;
+          if (node.status === "queued") action = "pause";
+          else if (node.status === "paused") action = "resume";
+          else if (["completed", "integrated", "no_changes", "failed", "blocked", "cancelled", "discarded", "rolled_back", "skipped"].includes(node.status)) action = "rerun";
+          if (action) {
+            const control = document.createElement("button");
+            control.className = "agent-action";
+            control.type = "button";
+            control.textContent = action;
+            control.addEventListener("click", async () => {
+              operatorDialog.close();
+              await controlGraphNode(node.key, action);
+            });
+            actions.append(control);
+          }
+          const edit = document.createElement("button");
+          edit.className = "agent-action";
+          edit.type = "button";
+          edit.textContent = "Edit node";
+          edit.addEventListener("click", () => openNodeEditor(node));
+          actions.append(edit);
+        }
+        content.append(actions);
+        showOperatorDialog(`Graph node · ${node.key}`, content);
+      }
+      function openNodeEditor(node) {
+        const content = document.createElement("div");
+        content.className = "operator-grid";
+        const field = document.createElement("label");
+        field.className = "operator-field";
+        field.textContent = "Node definition";
+        const editor = document.createElement("textarea");
+        editor.value = JSON.stringify(graphNodeSpecification(node), null, 2);
+        field.append(editor);
+        const reasonField = document.createElement("label");
+        reasonField.className = "operator-field";
+        reasonField.textContent = "Replacement reason";
+        const reason = document.createElement("input");
+        reason.placeholder = "Explain why this node changed";
+        reasonField.append(reason);
+        const cascadeLabel = document.createElement("label");
+        const cascade = document.createElement("input");
+        cascade.type = "checkbox";
+        cascade.checked = true;
+        cascadeLabel.append(cascade, document.createTextNode(" Invalidate downstream results"));
+        const save = document.createElement("button");
+        save.className = "agent-action";
+        save.type = "button";
+        save.textContent = "Replace node";
+        save.addEventListener("click", async () => {
+          try {
+            const replacement = JSON.parse(editor.value);
+            if (!reason.value.trim()) throw new Error("A replacement reason is required.");
+            const runId = activeAgentRun.id;
+            const response = await fetch(
+              `/api/agent/runs/${encodeURIComponent(runId)}/graph/nodes/${encodeURIComponent(node.key)}/replace`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ replacement, reason: reason.value.trim(), cascade: cascade.checked }),
+              },
+            );
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.detail || "Could not replace graph node.");
+            operatorDialog.close();
+            await loadAgentRun(runId);
+          } catch (error) {
+            window.alert(error.message);
+          }
+        });
+        content.append(field, reasonField, cascadeLabel, save);
+        showOperatorDialog(`Edit graph node · ${node.key}`, content);
+      }
+      async function openArtifact(key, name) {
+        if (!activeAgentRun) return;
+        try {
+          const response = await fetch(
+            `/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/graph/nodes/${encodeURIComponent(key)}/artifacts/${encodeURIComponent(name)}`,
+          );
+          const artifact = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(artifact.detail || "Could not read artifact.");
+          const content = document.createElement("div");
+          const meta = document.createElement("div");
+          meta.className = "operator-card-meta";
+          meta.textContent = `${artifact.type} · ${artifact.bytes} B · sha256 ${artifact.content_sha256}`;
+          const preview = document.createElement("pre");
+          preview.className = "operator-pre";
+          preview.textContent = typeof artifact.content === "string"
+            ? artifact.content
+            : JSON.stringify(artifact.content, null, 2);
+          const actions = document.createElement("div");
+          actions.className = "operator-row";
+          const copy = document.createElement("button");
+          copy.className = "agent-action";
+          copy.type = "button";
+          copy.textContent = "Copy";
+          copy.addEventListener("click", () => navigator.clipboard.writeText(preview.textContent));
+          const download = document.createElement("button");
+          download.className = "agent-action";
+          download.type = "button";
+          download.textContent = "Download";
+          download.addEventListener("click", () => {
+            const blob = new Blob([preview.textContent], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = `${artifact.name}.${artifact.type === "json" ? "json" : "txt"}`;
+            anchor.click();
+            URL.revokeObjectURL(url);
+          });
+          actions.append(copy, download);
+          content.append(meta, preview, actions);
+          showOperatorDialog(`Artifact · ${artifact.name}`, content);
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+      async function loadGraphTimeline() {
+        if (!activeAgentRun || graphView !== "timeline") return;
+        agentGraphTimelineEl.textContent = "Loading timeline…";
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/events`);
+          if (!response.ok) throw new Error("Could not load graph timeline.");
+          const events = await response.json();
+          agentGraphTimelineEl.replaceChildren();
+          for (const entry of events.filter((item) => item.type.includes("graph") || item.type.includes("worker"))) {
+            const row = document.createElement("div");
+            row.className = "timeline-item";
+            const time = document.createElement("div");
+            time.className = "timeline-time";
+            time.textContent = new Date(entry.created_at).toLocaleTimeString();
+            const event = document.createElement("div");
+            event.className = "timeline-event";
+            event.textContent = `${entry.seq}. ${entry.type.replaceAll("_", " ")} · ${JSON.stringify(entry.data)}`;
+            row.append(time, event);
+            agentGraphTimelineEl.append(row);
+          }
+          if (!agentGraphTimelineEl.children.length) agentGraphTimelineEl.textContent = "No graph events yet.";
+        } catch (error) {
+          agentGraphTimelineEl.textContent = error.message;
+        }
       }
       function resizePrompt() {
         promptEl.style.height = "auto";
         promptEl.style.height = `${Math.min(promptEl.scrollHeight, 180)}px`;
         if (!controller) sendButton.disabled = !promptEl.value.trim();
+        steerAgentButton.disabled = !promptEl.value.trim();
       }
       function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
       function addMessage(role, content = "") {
@@ -506,6 +1099,26 @@
           read_state: complete ? "Read" : "Reading",
           write_state: complete ? "Updated" : "Updating",
           delete_state: complete ? "Deleted" : "Deleting",
+          search_memory: complete ? "Searched memory for" : "Searching memory for",
+          read_memory: complete ? "Read memory" : "Reading memory",
+          save_lesson: complete ? "Saved lesson" : "Saving lesson",
+          forget_lesson: complete ? "Forgot lesson" : "Forgetting lesson",
+          consolidate_lessons: complete ? "Consolidated lessons" : "Consolidating lessons",
+          refresh_repository_index: complete ? "Refreshed" : "Refreshing",
+          agent_delegate_tasks: complete ? "Specialists reported on" : "Delegating specialists for",
+          agent_review_worker: complete ? "Reviewed worker changes in" : "Review worker changes in",
+          agent_integrate_worker: complete ? "Integrated worker changes in" : "Integrate worker changes in",
+          agent_rollback_worker: complete ? "Rolled back worker changes in" : "Roll back worker changes in",
+          agent_discard_worker: complete ? "Discarded private changes in" : "Discard private changes in",
+          agent_create_task_graph: complete ? "Started task graph" : "Start task graph",
+          agent_advance_task_graph: complete ? "Advanced task graph" : "Advance task graph",
+          agent_replan_task_graph: complete ? "Replanned task graph" : "Replan task graph",
+          agent_resolve_worker_conflict: complete ? "Resolved worker conflict in" : "Resolve worker conflict in",
+          agent_create_graph_from_template: complete ? "Started graph template" : "Start graph template",
+          agent_list_graph_templates: complete ? "Listed graph templates" : "Listing graph templates",
+          agent_control_graph_node: complete ? "Controlled graph node" : "Control graph node",
+          agent_replace_graph_node: complete ? "Replaced graph node" : "Replace graph node",
+          agent_read_graph_artifact: complete ? "Read graph artifact" : "Reading graph artifact",
         };
         const fallback = name.endsWith("_state") ? "state" : "file";
         return `${verbs[name] || name} ${path || fallback}`;
@@ -538,7 +1151,15 @@
         }
         const card = toolCard(payload, target);
         const label = card.querySelector(".tool-label");
-        const path = payload.arguments?.path || payload.arguments?.query || payload.arguments?.url || payload.arguments?.command || payload.arguments?.key || "";
+        const path = payload.arguments?.path
+          || payload.arguments?.query
+          || payload.arguments?.url
+          || payload.arguments?.command
+          || payload.arguments?.key
+          || payload.arguments?.memory_id
+          || payload.arguments?.title
+          || payload.arguments?.tasks?.map((task) => task.title).join(", ")
+          || "";
         if (payload.harness_event === "tool_started") {
           card.dataset.path = path;
           label.textContent = toolDescription(payload.name, path);
@@ -569,7 +1190,78 @@
 
         card.dataset.path = path;
         label.textContent = toolDescription(payload.name, path);
-        if (payload.arguments?.preview) {
+        let reviewSelection = null;
+        if (payload.name === "agent_integrate_worker" && payload.arguments?.review) {
+          const review = payload.arguments.review;
+          const requested = payload.arguments.selection || {};
+          const requestedPaths = requested.accepted_paths;
+          const requestedHunks = requested.accepted_hunks;
+          const acceptAll = requestedPaths == null && requestedHunks == null;
+          const reviewEl = document.createElement("div");
+          reviewEl.className = "change-review";
+          const controls = [];
+          for (const [index, file] of (review.files || []).entries()) {
+            const details = document.createElement("details");
+            details.className = `review-file${file.conflict ? " conflict" : ""}`;
+            details.open = index === 0;
+            const summary = document.createElement("summary");
+            summary.textContent = `${file.action}: ${file.path}${file.conflict ? " · conflict" : ""}${file.truncated ? " · diff truncated" : ""}`;
+            const options = document.createElement("div");
+            options.className = "review-options";
+            const wholeLabel = document.createElement("label");
+            const whole = document.createElement("input");
+            whole.type = "checkbox";
+            whole.checked = !file.conflict && (
+              acceptAll || (Array.isArray(requestedPaths) && requestedPaths.includes(file.path))
+            );
+            whole.disabled = Boolean(file.conflict);
+            wholeLabel.append(whole, document.createTextNode(" Accept whole file"));
+            options.append(wholeLabel);
+            const hunkInputs = [];
+            if (!file.binary && !file.truncated && (file.hunks || []).length) {
+              const hunks = document.createElement("div");
+              hunks.className = "review-hunks";
+              for (const hunk of file.hunks) {
+                const hunkLabel = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = !whole.checked
+                  && Array.isArray(requestedHunks?.[file.path])
+                  && requestedHunks[file.path].includes(hunk.id);
+                checkbox.disabled = whole.checked || Boolean(file.conflict);
+                hunkLabel.append(checkbox, document.createTextNode(` ${hunk.header}`));
+                hunks.append(hunkLabel);
+                hunkInputs.push({ id: hunk.id, checkbox });
+              }
+              options.append(hunks);
+            }
+            whole.addEventListener("change", () => {
+              for (const hunk of hunkInputs) hunk.checkbox.disabled = whole.checked;
+            });
+            const diff = document.createElement("pre");
+            diff.className = "tool-preview review-diff";
+            diff.textContent = file.diff || "No textual diff available.";
+            details.append(summary, options, diff);
+            reviewEl.append(details);
+            controls.push({ path: file.path, whole, hunks: hunkInputs });
+          }
+          reviewSelection = () => {
+            const acceptedPaths = [];
+            const acceptedHunks = {};
+            for (const control of controls) {
+              if (control.whole.checked) {
+                acceptedPaths.push(control.path);
+                continue;
+              }
+              const hunks = control.hunks
+                .filter((hunk) => hunk.checkbox.checked)
+                .map((hunk) => hunk.id);
+              if (hunks.length) acceptedHunks[control.path] = hunks;
+            }
+            return { accepted_paths: acceptedPaths, accepted_hunks: acceptedHunks };
+          };
+          card.append(reviewEl);
+        } else if (payload.arguments?.preview) {
           const preview = document.createElement("pre");
           preview.className = "tool-preview";
           preview.textContent = payload.arguments.preview;
@@ -586,6 +1278,15 @@
         deny.type = "button";
         deny.textContent = "Deny";
         const decide = async (approved) => {
+          const selection = approved && reviewSelection ? reviewSelection() : null;
+          if (
+            selection
+            && selection.accepted_paths.length === 0
+            && Object.keys(selection.accepted_hunks).length === 0
+          ) {
+            label.textContent = "Select at least one file or hunk, or deny the integration.";
+            return;
+          }
           approve.disabled = true;
           deny.disabled = true;
           label.textContent = approved ? "Working…" : "Denying…";
@@ -593,7 +1294,10 @@
             const response = await fetch(`/api/approvals/${encodeURIComponent(payload.approval_id)}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ approved }),
+              body: JSON.stringify({
+                approved,
+                ...(selection || {}),
+              }),
             });
             if (!response.ok) throw new Error("Approval expired.");
           } catch (error) {
@@ -694,9 +1398,367 @@
         const body = resumesAgent
           ? { instruction: text }
           : (isAgent
-            ? { goal: text, model: selectedModel }
+            ? {
+                goal: text,
+                model: selectedModel,
+                grants: [
+                  ...(grantWorkspaceEl.checked ? ["workspace_mutations"] : []),
+                  ...(grantTerminalEl.checked ? ["terminal"] : []),
+                ],
+              }
             : { messages, model: selectedModel });
         await streamRequest(url, body, target, !isAgent);
+      }
+      async function steerAgentRun() {
+        if (!activeAgentRun || !controller) return;
+        const instruction = promptEl.value.trim();
+        if (!instruction) return;
+        steerAgentButton.disabled = true;
+        try {
+          const response = await fetch(
+            `/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/steer`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ instruction }),
+            },
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.detail || "Could not steer the agent.");
+          promptEl.value = "";
+          resizePrompt();
+          renderAgentRun(payload);
+        } catch (error) {
+          showError(error.message);
+          steerAgentButton.disabled = false;
+        }
+      }
+      async function loadAgentHistory() {
+        try {
+          const response = await fetch("/api/agent/runs");
+          if (!response.ok) throw new Error("Could not load agent history.");
+          const runs = await response.json();
+          const content = document.createElement("div");
+          const selected = new Set();
+          const compare = document.createElement("button");
+          compare.className = "agent-action";
+          compare.type = "button";
+          compare.textContent = "Compare selected";
+          compare.disabled = true;
+          compare.addEventListener("click", () => openRunComparison(...selected));
+          content.append(compare);
+          for (const run of runs) {
+            const card = document.createElement("div");
+            card.className = "operator-card";
+            const row = document.createElement("div");
+            row.className = "operator-row";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.addEventListener("change", () => {
+              if (checkbox.checked) {
+                if (selected.size >= 2) {
+                  checkbox.checked = false;
+                  return;
+                }
+                selected.add(run.id);
+              } else {
+                selected.delete(run.id);
+              }
+              compare.disabled = selected.size !== 2;
+            });
+            const title = document.createElement("div");
+            title.className = "operator-card-title";
+            title.textContent = `${run.status.replaceAll("_", " ")} · ${run.goal}`;
+            const open = document.createElement("button");
+            open.className = "agent-action";
+            open.type = "button";
+            open.textContent = "Open";
+            open.addEventListener("click", async () => {
+              operatorDialog.close();
+              await loadAgentRun(run.id);
+            });
+            row.append(checkbox, title, open);
+            const meta = document.createElement("div");
+            meta.className = "operator-card-meta";
+            meta.textContent = `${new Date(run.updated_at).toLocaleString()} · ${run.event_count} events · ${run.worker_task_count} workers${run.parent_run_id ? ` · clone of ${run.parent_run_id.slice(0, 8)}` : ""}`;
+            card.append(row, meta);
+            content.append(card);
+          }
+          if (!runs.length) content.textContent = "No runs yet.";
+          showOperatorDialog("Run history", content);
+        } catch (error) { showError(error.message); }
+      }
+      async function loadAgentActivity() {
+        if (!activeAgentRun) return;
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/events`);
+          if (!response.ok) throw new Error("Could not load agent activity.");
+          const events = await response.json();
+          const content = document.createElement("div");
+          content.className = "graph-timeline";
+          for (const entry of events) {
+            const row = document.createElement("div");
+            row.className = "timeline-item";
+            const time = document.createElement("div");
+            time.className = "timeline-time";
+            time.textContent = new Date(entry.created_at).toLocaleString();
+            const event = document.createElement("div");
+            event.className = "timeline-event";
+            event.textContent = `${entry.seq}. ${entry.type.replaceAll("_", " ")}\n${JSON.stringify(entry.data)}`;
+            row.append(time, event);
+            content.append(row);
+          }
+          if (!events.length) content.textContent = "No activity yet.";
+          showOperatorDialog("Run timeline", content);
+        } catch (error) { showError(error.message); }
+      }
+      function metricCard(label, value, detail = "") {
+        const card = document.createElement("div");
+        card.className = "operator-card";
+        const title = document.createElement("div");
+        title.className = "operator-card-title";
+        title.textContent = `${label}: ${value}`;
+        card.append(title);
+        if (detail) {
+          const meta = document.createElement("div");
+          meta.className = "operator-card-meta";
+          meta.textContent = detail;
+          card.append(meta);
+        }
+        return card;
+      }
+      async function createRegressionScenario() {
+        if (!activeAgentRun) return;
+        const name = window.prompt("Regression scenario name:", activeAgentRun.goal.slice(0, 120));
+        if (name === null || !name.trim()) return;
+        try {
+          const response = await fetch(`/api/evals/scenarios/from-run/${encodeURIComponent(activeAgentRun.id)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim() }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.detail || "Could not create regression scenario.");
+          await loadRegressionScenarios();
+        } catch (error) { showError(error.message); }
+      }
+      async function loadRunObservability() {
+        if (!activeAgentRun) return;
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/trace`);
+          const trace = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(trace.detail || "Could not load run trace.");
+          const content = document.createElement("div");
+          content.className = "operator-grid";
+          const usage = trace.usage || {};
+          const evaluation = trace.evaluation;
+          content.append(
+            metricCard("Tokens", usage.total_tokens || 0, `${usage.input_tokens || 0} input · ${usage.output_tokens || 0} output · ${usage.provider_token_calls ? "provider measured" : "estimated"}`),
+            metricCard("Cost", `$${(usage.cost_usd || 0).toFixed(8)}`, usage.cost_source === "configured" ? "Configured model pricing" : "Unpriced model; configure per-million rates"),
+            metricCard("Latency", `${usage.latency_ms || 0} ms`, `${usage.model_latency_ms || 0} ms model · ${usage.tool_latency_ms || 0} ms tools`),
+            metricCard("Evaluation", evaluation ? `${evaluation.overall_score}/100` : "pending", evaluation ? `Quality ${evaluation.quality_score} · Safety ${evaluation.safety_score} · ${evaluation.passed ? "pass" : "review"}` : "Run must reach a terminal state"),
+          );
+          const actions = document.createElement("div");
+          actions.className = "operator-row";
+          const scenario = document.createElement("button");
+          scenario.className = "agent-action";
+          scenario.type = "button";
+          scenario.textContent = "Save regression scenario";
+          scenario.disabled = !evaluation;
+          scenario.addEventListener("click", createRegressionScenario);
+          actions.append(scenario);
+          content.append(actions);
+          if ((trace.failures || []).length) {
+            const failures = document.createElement("pre");
+            failures.className = "operator-pre";
+            failures.textContent = `Classified failures\n${JSON.stringify(trace.failures, null, 2)}`;
+            content.append(failures);
+          }
+          if (evaluation) {
+            const scores = document.createElement("pre");
+            scores.className = "operator-pre";
+            scores.textContent = `Automated checks\n${JSON.stringify({ quality: evaluation.quality_checks, safety: evaluation.safety_checks }, null, 2)}`;
+            content.append(scores);
+          }
+          const timeline = document.createElement("div");
+          timeline.className = "graph-timeline";
+          for (const span of trace.spans || []) {
+            const row = document.createElement("div");
+            row.className = "timeline-item";
+            const time = document.createElement("div");
+            time.className = "timeline-time";
+            time.textContent = `${span.duration_ms ?? "…"} ms`;
+            const detail = document.createElement("div");
+            detail.className = "timeline-event";
+            const tokens = span.usage?.total_tokens ? ` · ${span.usage.total_tokens} tokens` : "";
+            detail.textContent = `${span.seq}. ${span.kind} · ${span.name} · ${span.status}${tokens}\n${JSON.stringify(span.attributes || {})}`;
+            row.append(time, detail);
+            timeline.append(row);
+          }
+          content.append(timeline);
+          showOperatorDialog("Run observability", content);
+        } catch (error) { showError(error.message); }
+      }
+      async function loadRegressionScenarios() {
+        try {
+          const response = await fetch("/api/evals/scenarios");
+          if (!response.ok) throw new Error("Could not load regression scenarios.");
+          const scenarios = await response.json();
+          const content = document.createElement("div");
+          for (const scenario of scenarios) {
+            const card = document.createElement("div");
+            card.className = "operator-card";
+            const title = document.createElement("div");
+            title.className = "operator-card-title";
+            title.textContent = `${scenario.name} · v${scenario.version}`;
+            const meta = document.createElement("div");
+            meta.className = "operator-card-meta";
+            const latest = scenario.replays.at(-1);
+            meta.textContent = `${scenario.replays.length} replay(s) · ${latest ? (latest.assertions.passed ? "latest passed" : "latest failed") : "never replayed"} · ${JSON.stringify(scenario.assertions)}`;
+            const replay = document.createElement("button");
+            replay.className = "agent-action";
+            replay.type = "button";
+            replay.textContent = "Replay";
+            replay.disabled = Boolean(controller);
+            replay.addEventListener("click", async () => {
+              operatorDialog.close();
+              setMode("agent");
+              const target = addMessage("assistant");
+              await streamRequest(`/api/evals/scenarios/${encodeURIComponent(scenario.id)}/replay`, {}, target, false);
+            });
+            card.append(title, meta, replay);
+            content.append(card);
+          }
+          if (!scenarios.length) content.textContent = "No regression scenarios yet. Save one from a terminal run's Observe view.";
+          showOperatorDialog("Regression scenarios", content);
+        } catch (error) { showError(error.message); }
+      }
+      async function loadGraphTemplates() {
+        try {
+          const response = await fetch("/api/agent/graph/templates");
+          if (!response.ok) throw new Error("Could not load graph templates.");
+          const templates = await response.json();
+          const content = document.createElement("div");
+          for (const template of templates) {
+            const card = document.createElement("div");
+            card.className = "operator-card";
+            const title = document.createElement("div");
+            title.className = "operator-card-title";
+            title.textContent = `${template.name}@${template.version} · ${template.nodes} nodes`;
+            const description = document.createElement("div");
+            description.className = "operator-card-meta";
+            description.textContent = template.description;
+            card.append(title, description);
+            for (const [name, parameter] of Object.entries(template.parameters || {})) {
+              const detail = document.createElement("div");
+              detail.className = "operator-card-meta";
+              detail.textContent = `${name}: ${parameter.description} · default ${parameter.default}`;
+              card.append(detail);
+            }
+            content.append(card);
+          }
+          showOperatorDialog("Versioned graph templates", content);
+        } catch (error) { showError(error.message); }
+      }
+      async function openRunComparison(leftId = null, rightId = null) {
+        try {
+          if (!leftId || !rightId) {
+            const response = await fetch("/api/agent/runs");
+            if (!response.ok) throw new Error("Could not load runs for comparison.");
+            const runs = await response.json();
+            if (runs.length < 2) throw new Error("At least two runs are required for comparison.");
+            const content = document.createElement("div");
+            content.className = "operator-grid";
+            const left = document.createElement("select");
+            const right = document.createElement("select");
+            for (const run of runs) {
+              for (const select of [left, right]) {
+                const option = document.createElement("option");
+                option.value = run.id;
+                option.textContent = `${run.status} · ${run.goal.slice(0, 80)}`;
+                select.append(option);
+              }
+            }
+            right.selectedIndex = 1;
+            for (const [label, select] of [["Left run", left], ["Right run", right]]) {
+              const field = document.createElement("label");
+              field.className = "operator-field";
+              field.textContent = label;
+              field.append(select);
+              content.append(field);
+            }
+            const submit = document.createElement("button");
+            submit.className = "agent-action";
+            submit.type = "button";
+            submit.textContent = "Compare";
+            submit.addEventListener("click", () => openRunComparison(left.value, right.value));
+            content.append(submit);
+            showOperatorDialog("Compare runs", content);
+            return;
+          }
+          const response = await fetch(`/api/agent/runs/compare?left_id=${encodeURIComponent(leftId)}&right_id=${encodeURIComponent(rightId)}`);
+          const comparison = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(comparison.detail || "Could not compare runs.");
+          const content = document.createElement("div");
+          const table = document.createElement("table");
+          table.className = "comparison-table";
+          const head = document.createElement("tr");
+          for (const label of ["Field", "Left", "Right"]) {
+            const cell = document.createElement("th");
+            cell.textContent = label;
+            head.append(cell);
+          }
+          table.append(head);
+          for (const difference of comparison.differences) {
+            const row = document.createElement("tr");
+            for (const value of [difference.field, difference.left, difference.right]) {
+              const cell = document.createElement("td");
+              cell.textContent = typeof value === "string" ? value : JSON.stringify(value);
+              row.append(cell);
+            }
+            table.append(row);
+          }
+          content.append(table);
+          if (comparison.node_differences.length) {
+            const nodes = document.createElement("pre");
+            nodes.className = "operator-pre";
+            nodes.textContent = `Node differences\n${JSON.stringify(comparison.node_differences, null, 2)}`;
+            content.append(nodes);
+          }
+          showOperatorDialog("Run comparison", content);
+        } catch (error) { showError(error.message); }
+      }
+      async function cloneAgentRun() {
+        if (!activeAgentRun || controller) return;
+        const goal = window.prompt("Goal for the cloned run:", activeAgentRun.goal);
+        if (goal === null || !goal.trim()) return;
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/clone`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ goal: goal.trim() }),
+          });
+          const clone = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(clone.detail || "Could not clone run.");
+          renderAgentRun(clone);
+        } catch (error) { showError(error.message); }
+      }
+      async function debugAgentRun() {
+        if (!activeAgentRun) return;
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(activeAgentRun.id)}/debug`);
+          const debug = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(debug.detail || "Could not load debug snapshot.");
+          const content = document.createElement("div");
+          const diagnostics = document.createElement("pre");
+          diagnostics.className = "operator-pre";
+          diagnostics.textContent = JSON.stringify(debug.diagnostics, null, 2);
+          const events = document.createElement("pre");
+          events.className = "operator-pre";
+          events.textContent = JSON.stringify(debug.recent_events, null, 2);
+          content.append(diagnostics, events);
+          showOperatorDialog("Run debug snapshot", content);
+        } catch (error) { showError(error.message); }
       }
       async function stopAgentRun() {
         if (!activeAgentRun) return;
@@ -738,6 +1800,38 @@
           // Agent state is supplemental; connection status handles server errors.
         }
       }
+      async function loadAgentRun(runId) {
+        try {
+          const response = await fetch(`/api/agent/runs/${encodeURIComponent(runId)}`);
+          const run = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(run.detail || "Could not load agent run.");
+          renderAgentRun(run);
+          setMode("agent");
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+      async function controlGraphNode(key, action) {
+        if (!activeAgentRun?.resumable) return;
+        const runId = activeAgentRun.id;
+        const reason = window.prompt(`Reason to ${action} ${key}:`);
+        if (!reason?.trim()) return;
+        try {
+          const response = await fetch(
+            `/api/agent/runs/${encodeURIComponent(runId)}/graph/nodes/${encodeURIComponent(key)}/control`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action, reason: reason.trim(), cascade: true }),
+            },
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.detail || `Could not ${action} graph node.`);
+          await loadAgentRun(runId);
+        } catch (error) {
+          showError(error.message);
+        }
+      }
       async function checkStatus() {
         try {
           const response = await fetch("/api/status");
@@ -750,14 +1844,208 @@
           };
           terminalModeEl.textContent = modeLabels[status.terminal_mode] || status.terminal_mode;
           terminalModeEl.classList.toggle("host", status.terminal_mode === "host");
+          terminalModeEl.classList.toggle("unready", status.terminal_mode === "sandbox" && status.sandbox_ready === false);
+          terminalModeEl.title = status.sandbox_error || (status.sandbox_ready ? "Sandbox ready" : "");
+          grantTerminalEl.disabled = status.terminal_mode === "disabled"
+            || (status.terminal_mode === "sandbox" && status.sandbox_ready === false);
           statusEl.className = `status ${status.connected ? "online" : "offline"}`;
           const label = status.connected ? "Connected" : "Disconnected";
           statusText.textContent = label;
           statusEl.title = label;
+          await checkMemoryStatus();
         } catch {
           statusEl.className = "status offline";
           statusText.textContent = "Disconnected";
           statusEl.title = "Disconnected";
+        }
+      }
+      async function openMemoryBrowser(initialQuery = "") {
+        const content = document.createElement("div");
+        content.className = "operator-grid";
+        const controls = document.createElement("div");
+        controls.className = "operator-row";
+        const query = document.createElement("input");
+        query.placeholder = "Search artifacts, lessons, runs, context, and repository";
+        query.value = initialQuery;
+        query.style.flex = "1 1 340px";
+        const kind = document.createElement("select");
+        for (const [value, label] of [
+          ["", "All memory"],
+          ["artifact", "Artifacts"],
+          ["lesson", "Lessons"],
+          ["run", "Runs"],
+          ["context", "Context"],
+          ["repository", "Repository"],
+        ]) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          kind.append(option);
+        }
+        const search = document.createElement("button");
+        search.className = "agent-action";
+        search.type = "button";
+        search.textContent = "Search";
+        const refresh = document.createElement("button");
+        refresh.className = "agent-action";
+        refresh.type = "button";
+        refresh.textContent = "Refresh repo";
+        refresh.addEventListener("click", refreshMemoryIndex);
+        const consolidate = document.createElement("button");
+        consolidate.className = "agent-action";
+        consolidate.type = "button";
+        consolidate.textContent = "Consolidate lessons";
+        consolidate.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/memory/lessons/consolidate", { method: "POST" });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || "Could not consolidate lessons.");
+            window.alert(`Merged ${result.merged_count} duplicate lesson(s).`);
+          } catch (error) { showError(error.message); }
+        });
+        controls.append(query, kind, search, refresh, consolidate);
+        const results = document.createElement("div");
+        content.append(controls, results);
+        const runSearch = async () => {
+          if (!query.value.trim()) return;
+          results.textContent = "Searching hybrid memory…";
+          try {
+            const parameters = new URLSearchParams({ q: query.value.trim(), limit: "10" });
+            if (kind.value) parameters.append("kinds", kind.value);
+            const response = await fetch(`/api/memory/search?${parameters}`);
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.detail || "Could not search memory.");
+            results.replaceChildren();
+            for (const item of payload.results || []) {
+              const card = document.createElement("div");
+              card.className = "operator-card";
+              const title = document.createElement("div");
+              title.className = "operator-card-title";
+              title.textContent = `${item.kind} · ${item.title}`;
+              const meta = document.createElement("div");
+              meta.className = "operator-card-meta";
+              const components = item.score_components || {};
+              meta.textContent = [
+                `score ${item.score}`,
+                `lexical ${components.lexical ?? 0}`,
+                `semantic ${components.semantic ?? 0}`,
+                `confidence ${item.confidence}`,
+                item.consolidation_count > 1 ? `${item.consolidation_count} consolidated` : "",
+                item.stale ? item.stale_reason : item.trust,
+              ].filter(Boolean).join(" · ");
+              const snippet = document.createElement("pre");
+              snippet.className = "operator-pre";
+              snippet.textContent = item.snippet;
+              const actions = document.createElement("div");
+              actions.className = "operator-row";
+              const read = document.createElement("button");
+              read.className = "agent-action";
+              read.type = "button";
+              read.textContent = "Read";
+              read.addEventListener("click", () => openMemoryEntry(item.id));
+              actions.append(read);
+              if (item.kind === "lesson") {
+                for (const rating of ["helpful", "unhelpful"]) {
+                  const button = document.createElement("button");
+                  button.className = "agent-action";
+                  button.type = "button";
+                  button.textContent = rating === "helpful" ? "Helpful" : "Not helpful";
+                  button.addEventListener("click", async () => {
+                    const reason = window.prompt(`Optional reason this memory was ${rating}:`) ?? "";
+                    try {
+                      const response = await fetch(
+                        `/api/memory/lessons/${encodeURIComponent(item.id)}/feedback`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ rating, reason: reason || null }),
+                        },
+                      );
+                      const feedback = await response.json().catch(() => ({}));
+                      if (!response.ok) throw new Error(feedback.detail || "Could not save feedback.");
+                      await runSearch();
+                    } catch (error) { showError(error.message); }
+                  });
+                  actions.append(button);
+                }
+              }
+              card.append(title, meta, snippet, actions);
+              results.append(card);
+            }
+            if (!results.children.length) results.textContent = "No matching memory.";
+          } catch (error) {
+            results.textContent = error.message;
+          }
+        };
+        search.addEventListener("click", runSearch);
+        query.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") runSearch();
+        });
+        showOperatorDialog("Hybrid memory browser", content);
+        if (initialQuery) runSearch();
+      }
+      async function openMemoryEntry(memoryId) {
+        try {
+          const response = await fetch(`/api/memory/entries/${encodeURIComponent(memoryId)}?allow_stale=true`);
+          const entry = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(entry.detail || "Could not read memory.");
+          const content = document.createElement("div");
+          const meta = document.createElement("div");
+          meta.className = "operator-card-meta";
+          meta.textContent = [
+            entry.kind,
+            entry.trust,
+            `confidence ${entry.confidence}`,
+            `sha256 ${entry.content_sha256 || entry.provenance?.sha256 || "n/a"}`,
+            entry.stale ? entry.stale_reason : "current",
+          ].join(" · ");
+          const preview = document.createElement("pre");
+          preview.className = "operator-pre";
+          preview.textContent = entry.content;
+          const provenance = document.createElement("pre");
+          provenance.className = "operator-pre";
+          provenance.textContent = JSON.stringify(entry.provenance, null, 2);
+          content.append(meta, preview, provenance);
+          showOperatorDialog(`Memory · ${entry.title}`, content);
+        } catch (error) { showError(error.message); }
+      }
+      async function checkMemoryStatus() {
+        try {
+          const response = await fetch("/api/memory/status");
+          const memory = await response.json();
+          if (!response.ok) throw new Error(memory.detail || "Memory unavailable");
+          const repository = memory.repository || {};
+          const kinds = memory.entry_kinds || {};
+          const feedback = memory.lesson_feedback || {};
+          memoryStatusEl.textContent = `Memory ${memory.active_entries || 0}`;
+          memoryStatusEl.title = [
+            `${memory.active_entries || 0} active records`,
+            `${kinds.artifact || 0} artifact memories`,
+            `${kinds.lesson || 0} lessons`,
+            `${feedback.helpful || 0} helpful / ${feedback.unhelpful || 0} unhelpful ratings`,
+            `${memory.retrieval?.mode || "hybrid"} retrieval`,
+            `${repository.files || 0} indexed files`,
+            `${repository.chunks || 0} indexed chunks`,
+            repository.updated_at ? `Indexed ${repository.updated_at}` : "Index not built",
+            repository.truncated ? "Index reached a configured bound" : "Index complete",
+          ].join("\n");
+        } catch (error) {
+          memoryStatusEl.textContent = "Memory !";
+          memoryStatusEl.title = error.message;
+        }
+      }
+      async function refreshMemoryIndex() {
+        memoryStatusEl.disabled = true;
+        memoryStatusEl.textContent = "Memory …";
+        try {
+          const response = await fetch("/api/memory/index/refresh", { method: "POST" });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.detail || "Could not refresh memory index.");
+          await checkMemoryStatus();
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          memoryStatusEl.disabled = false;
         }
       }
       form.addEventListener("submit", (event) => {
@@ -803,7 +2091,31 @@
       agentModeButton.addEventListener("click", () => setMode("agent"));
       stopAgentButton.addEventListener("click", stopAgentRun);
       resumeAgentButton.addEventListener("click", resumeAgentRun);
+      steerAgentButton.addEventListener("click", steerAgentRun);
+      historyAgentButton.addEventListener("click", loadAgentHistory);
+      activityAgentButton.addEventListener("click", loadAgentActivity);
+      observeAgentButton.addEventListener("click", loadRunObservability);
+      evalsAgentButton.addEventListener("click", loadRegressionScenarios);
+      templatesAgentButton.addEventListener("click", loadGraphTemplates);
+      compareAgentButton.addEventListener("click", () => openRunComparison());
+      cloneAgentButton.addEventListener("click", cloneAgentRun);
+      debugAgentButton.addEventListener("click", debugAgentRun);
+      graphDagViewButton.addEventListener("click", () => {
+        graphView = "dag";
+        if (activeAgentRun) renderGraph(activeAgentRun);
+      });
+      graphTimelineViewButton.addEventListener("click", () => {
+        graphView = "timeline";
+        if (activeAgentRun) renderGraph(activeAgentRun);
+      });
+      operatorDialogCloseButton.addEventListener("click", () => operatorDialog.close());
+      operatorDialog.addEventListener("click", (event) => {
+        if (event.target === operatorDialog) operatorDialog.close();
+      });
+      memoryStatusEl.addEventListener("click", () => openMemoryBrowser());
       newAgentButton.addEventListener("click", () => {
+        grantWorkspaceEl.checked = false;
+        grantTerminalEl.checked = false;
         renderAgentRun(null);
         setMode("agent");
       });

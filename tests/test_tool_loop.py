@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -197,6 +198,23 @@ async def test_command_requires_approval_and_model_receives_output(tmp_path):
     assert any('"stdout":"terminal-output"' in event for event in events)
     tool_result = model_requests[1]["messages"][-1]
     assert "terminal-output" in tool_result["content"]
+
+
+@pytest.mark.asyncio
+async def test_approval_resolution_can_carry_review_selection():
+    approvals = ApprovalBroker()
+    approval_id = approvals.register("agent_integrate_worker", ".")
+    waiting = asyncio.create_task(approvals.wait_resolution(approval_id))
+    selection = {
+        "accepted_paths": ["note.txt"],
+        "accepted_hunks": {"other.txt": ["hunk-id"]},
+    }
+
+    assert approvals.decide(approval_id, True, selection) is True
+    resolution = await waiting
+
+    assert resolution.approved is True
+    assert resolution.selection == selection
 
 
 @pytest.mark.asyncio

@@ -62,6 +62,7 @@ class ModelGateway:
     ) -> None:
         self.settings = settings
         self._transport = transport
+        self._stream_usage_supported: bool | None = None
 
     @property
     def headers(self) -> dict[str, str]:
@@ -111,6 +112,8 @@ class ModelGateway:
                 "max_tokens": max_tokens,
                 "stream": True,
             }
+            if self._stream_usage_supported is not False:
+                payload["stream_options"] = {"include_usage": True}
             if tools:
                 payload["tools"] = tools
                 payload["tool_choice"] = "auto"
@@ -134,12 +137,44 @@ class ModelGateway:
                 f"{self.settings.model_base_url}: {exc}"
             ) from exc
 
+        if response.is_error and "stream_options" in payload:
+            await response.aread()
+            detail = self._error_detail(response)
+            unsupported_usage = response.status_code in {400, 422} and any(
+                marker in detail.lower()
+                for marker in ("stream_options", "include_usage", "unknown field", "extra field")
+            )
+            if unsupported_usage:
+                await response.aclose()
+                self._stream_usage_supported = False
+                payload.pop("stream_options", None)
+                try:
+                    retry = client.build_request(
+                        "POST",
+                        f"{self.settings.model_base_url}/v1/chat/completions",
+                        headers={**self.headers, "Content-Type": "application/json"},
+                        json=payload,
+                    )
+                    response = await client.send(retry, stream=True)
+                except (httpx.HTTPError, ValueError) as exc:
+                    await client.aclose()
+                    raise ModelUnavailableError(
+                        f"Could not reach the model server at {self.settings.model_base_url}: {exc}"
+                    ) from exc
+            else:
+                await response.aclose()
+                await client.aclose()
+                raise ModelResponseError(detail)
+
         if response.is_error:
             await response.aread()
             detail = self._error_detail(response)
             await response.aclose()
             await client.aclose()
             raise ModelResponseError(detail)
+
+        if "stream_options" in payload:
+            self._stream_usage_supported = True
 
         return ChatStream(client=client, response=response, model=model)
 

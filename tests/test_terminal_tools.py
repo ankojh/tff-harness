@@ -133,6 +133,24 @@ async def test_sandbox_uses_docker_with_isolation_flags(tmp_path):
     assert "noexec" in arguments[arguments.index("--tmpfs") + 1]
     assert arguments[-4:] == ["sandbox:test", "/bin/sh", "-lc", "printf hello"]
 
+    ready, error = await tools.readiness()
+    assert ready is True
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_sandbox_readiness_reports_missing_docker(tmp_path):
+    tools = TerminalTools(
+        tmp_path,
+        mode="sandbox",
+        docker_executable=str(tmp_path / "missing-docker"),
+    )
+
+    ready, error = await tools.readiness()
+
+    assert ready is False
+    assert "unavailable" in error
+
 
 def test_disabled_terminal_is_not_exposed(tmp_path):
     tools = TerminalTools(tmp_path, mode="disabled")
