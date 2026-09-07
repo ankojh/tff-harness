@@ -935,7 +935,7 @@ class AgentExecution:
                     return
 
                 if not calls:
-                    messages.append({"role": "assistant", "content": content or None})
+                    messages.append({"role": "assistant", "content": content})
                     messages.append(
                         {
                             "role": "system",

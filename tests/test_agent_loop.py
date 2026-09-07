@@ -266,17 +266,25 @@ async def test_observability_api_accounts_usage_and_replays_regression_scenario(
 
 
 @pytest.mark.asyncio
-async def test_agent_exhausts_round_budget_when_model_does_not_use_lifecycle(tmp_path):
+@pytest.mark.parametrize("content", ["Still thinking", ""])
+async def test_agent_exhausts_round_budget_when_model_does_not_use_lifecycle(tmp_path, content):
+    requests = []
+
     def model_handler(request):
-        stream = (
-            b'data: {"choices":[{"delta":{"content":"Still thinking"}}]}\n\n'
-            b"data: [DONE]\n\n"
-        )
+        messages = json.loads(request.content)["messages"]
+        requests.append(messages)
+        assert messages[0]["role"] == "system"
+        if len(requests) == 2:
+            assert "The run is still active" in messages[0]["content"]
+            assert [message["role"] for message in messages[1:]] == ["user", "assistant"]
+            assert messages[-1]["content"] == content
+        payload = {"choices": [{"delta": {"content": content}}]}
+        stream = f"data: {json.dumps(payload)}\n\ndata: [DONE]\n\n".encode()
         return httpx.Response(200, content=stream)
 
     app = create_app(
         model_transport=httpx.MockTransport(model_handler),
-        settings=agent_settings(tmp_path, agent_max_tool_rounds=1),
+        settings=agent_settings(tmp_path, agent_max_tool_rounds=2),
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -288,8 +296,11 @@ async def test_agent_exhausts_round_budget_when_model_does_not_use_lifecycle(tmp
 
     assert response.status_code == 200
     assert current["status"] == "budget_exhausted"
-    assert current["usage"]["tool_rounds"] == 1
-    assert "1 model/tool rounds" in current["summary"]
+    assert current["usage"]["tool_rounds"] == 2
+    assert len(requests) == 2
+    assert "2 model/tool rounds" in current["summary"]
+    saved = AgentRunStore(tmp_path / "agent.json").get(current["id"])
+    assert all(message["content"] == content for message in saved["messages"] if message["role"] == "assistant")
 
 
 @pytest.mark.asyncio
@@ -302,6 +313,10 @@ async def test_failed_agent_run_can_be_manually_resumed(tmp_path):
         calls += 1
         if calls == 1:
             raise httpx.ConnectError("temporarily offline", request=request)
+        messages = json.loads(request.content)["messages"]
+        assert messages[0]["role"] == "system"
+        assert "resumed manually" in messages[0]["content"]
+        assert all(message["role"] not in {"system", "developer"} for message in messages[1:])
         call_id, name, arguments = responses[calls - 2]
         return httpx.Response(200, content=tool_stream(call_id, name, arguments))
 

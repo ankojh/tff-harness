@@ -107,7 +107,7 @@ class ModelGateway:
             model = await self._resolve_model(client, requested_model)
             payload = {
                 "model": model,
-                "messages": messages,
+                "messages": self._ordered_messages(messages),
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "stream": True,
@@ -177,6 +177,36 @@ class ModelGateway:
             self._stream_usage_supported = True
 
         return ChatStream(client=client, response=response, model=model)
+
+    @staticmethod
+    def _ordered_messages(messages: list[dict]) -> list[dict]:
+        # Resume, lifecycle reminders, and compaction add guidance to the history.
+        # Providers may require a single initial guidance block. Keep guidance
+        # order without rewriting saved history or separating tool calls/results.
+        guidance = []
+        conversation = []
+        for message in messages:
+            # Older runs may contain empty model turns saved as null. Null content
+            # is only accepted with tool calls by some OpenAI-compatible servers.
+            if (
+                message.get("role") == "assistant"
+                and message.get("content") is None
+                and not message.get("tool_calls")
+            ):
+                message = {**message, "content": ""}
+            target = guidance if message.get("role") in {"system", "developer"} else conversation
+            target.append(message)
+        if len(guidance) > 1:
+            mixed_roles = len({message["role"] for message in guidance}) > 1
+            guidance = [{
+                "role": "system" if any(message["role"] == "system" for message in guidance) else "developer",
+                "content": "\n\n".join(
+                    (f"{message['role'].capitalize()} guidance:\n" if mixed_roles else "")
+                    + message["content"]
+                    for message in guidance
+                ),
+            }]
+        return guidance + conversation
 
     async def _resolve_model(
         self, client: httpx.AsyncClient, requested: Optional[str]

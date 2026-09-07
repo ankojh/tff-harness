@@ -1563,7 +1563,14 @@ class AgentTaskGraphTools:
                             "type": "string",
                             "enum": ["status_is", "report_contains", "report_not_contains", "artifact_truthy", "artifact_equals"],
                         },
-                        "value": {},
+                        "value": {
+                            "type": "string",
+                            "description": "Literal text to compare. For non-string artifact_equals values, use value_json instead.",
+                        },
+                        "value_json": {
+                            "type": "string",
+                            "description": "JSON-encoded artifact_equals value (e.g. false, 42, null, or an object/array). Omit value when using this field.",
+                        },
                         "artifact": {"type": "string", "maxLength": 80},
                     },
                     "required": ["source", "operator"],
@@ -1587,7 +1594,14 @@ class AgentTaskGraphTools:
                             "type": "object",
                             "properties": {
                                 "operator": {"type": "string", "enum": ["report_contains", "report_not_contains", "artifact_truthy", "artifact_equals"]},
-                                "value": {},
+                                "value": {
+                                    "type": "string",
+                                    "description": "Literal text to compare. For non-string artifact_equals values, use value_json instead.",
+                                },
+                                "value_json": {
+                                    "type": "string",
+                                    "description": "JSON-encoded artifact_equals value (e.g. false, 42, null, or an object/array). Omit value when using this field.",
+                                },
                                 "artifact": {"type": "string", "maxLength": 80},
                             },
                             "required": ["operator"],
@@ -3272,6 +3286,23 @@ class AgentTaskGraphTools:
             )
         return specifications
 
+    @staticmethod
+    def _comparison_value(raw: dict[str, Any]) -> Any:
+        # Keep native values from existing API clients and persisted graphs valid.
+        # Model-facing schemas use JSON text because some providers require one type.
+        if "value_json" not in raw:
+            return deepcopy(raw.get("value"))
+        if "value" in raw:
+            raise AgentRunError("Specify only one of value or value_json.")
+        if raw.get("operator") != "artifact_equals":
+            raise AgentRunError("value_json is only supported for artifact_equals.")
+        if not isinstance(raw["value_json"], str):
+            raise AgentRunError("value_json must be JSON-encoded text.")
+        try:
+            return json.loads(raw["value_json"])
+        except ValueError as exc:
+            raise AgentRunError("value_json must contain valid JSON.") from exc
+
     def _condition(
         self,
         raw: Any,
@@ -3299,12 +3330,12 @@ class AgentTaskGraphTools:
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", artifact)
         ):
             raise AgentRunError("Artifact conditions require a safe artifact name.")
-        if operator in {"status_is", "report_contains", "report_not_contains", "artifact_equals"} and "value" not in raw:
+        if operator in {"status_is", "report_contains", "report_not_contains", "artifact_equals"} and not {"value", "value_json"}.intersection(raw):
             raise AgentRunError("This graph condition requires a value.")
         return {
             "source": source,
             "operator": operator,
-            "value": deepcopy(raw.get("value")),
+            "value": self._comparison_value(raw),
             "artifact": artifact,
         }
 
@@ -3403,13 +3434,13 @@ class AgentTaskGraphTools:
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", artifact)
         ):
             raise AgentRunError("Artifact loop conditions require a safe artifact name.")
-        if operator in {"report_contains", "report_not_contains", "artifact_equals"} and "value" not in until:
+        if operator in {"report_contains", "report_not_contains", "artifact_equals"} and not {"value", "value_json"}.intersection(until):
             raise AgentRunError("This loop condition requires a value.")
         return {
             "max_iterations": maximum,
             "until": {
                 "operator": operator,
-                "value": deepcopy(until.get("value")),
+                "value": AgentTaskGraphTools._comparison_value(until),
                 "artifact": artifact,
             },
         }

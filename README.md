@@ -498,11 +498,14 @@ The `/api/status` response reports `agent_version: "9.0"`.
 
 Agent execution has fixed cumulative budgets:
 
-- `AGENT_MAX_TOOL_ROUNDS` defaults to 32 model/tool rounds.
-- `AGENT_MAX_TOOL_CALLS` defaults to 64 calls, including lifecycle controls.
-- `AGENT_MAX_SECONDS` defaults to 900 elapsed streaming seconds, including time
+- `AGENT_MAX_TOOL_ROUNDS` defaults to 320 model/tool rounds (configurable from 1 to 1,000).
+- `AGENT_MAX_TOOL_CALLS` defaults to 640 calls, including lifecycle controls (1 to 5,000).
+- `AGENT_MAX_SECONDS` defaults to 9,000 elapsed streaming seconds (2.5 hours), including time
   spent waiting for an approval.
 - `AGENT_MAX_CONSECUTIVE_FAILURES` defaults to 3 tool failures.
+
+Budgets are captured when a run is created and accumulate across resumes.
+Changing these settings applies to new runs; clones retain their source run's budgets.
 
 The UI restores the current run after a reload and exposes manual Resume when
 the stored status allows it. Ordinary Chat mode remains available and does not

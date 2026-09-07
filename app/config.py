@@ -100,9 +100,9 @@ class Settings:
     eval_file: Path | None = None
     model_input_cost_per_million: float = 0.0
     model_output_cost_per_million: float = 0.0
-    agent_max_tool_rounds: int = 32
-    agent_max_tool_calls: int = 64
-    agent_max_seconds: int = 900
+    agent_max_tool_rounds: int = 320
+    agent_max_tool_calls: int = 640
+    agent_max_seconds: int = 9000
     agent_max_consecutive_failures: int = 3
 
     @classmethod
@@ -142,13 +142,13 @@ class Settings:
                 "MODEL_OUTPUT_COST_PER_MILLION", 0.0, 0.0, 100_000.0
             ),
             agent_max_tool_rounds=_bounded_int(
-                "AGENT_MAX_TOOL_ROUNDS", 32, 1, 100
+                "AGENT_MAX_TOOL_ROUNDS", 320, 1, 1000
             ),
             agent_max_tool_calls=_bounded_int(
-                "AGENT_MAX_TOOL_CALLS", 64, 1, 500
+                "AGENT_MAX_TOOL_CALLS", 640, 1, 5000
             ),
             agent_max_seconds=_bounded_int(
-                "AGENT_MAX_SECONDS", 900, 10, 86_400
+                "AGENT_MAX_SECONDS", 9000, 10, 86_400
             ),
             agent_max_consecutive_failures=_bounded_int(
                 "AGENT_MAX_CONSECUTIVE_FAILURES", 3, 1, 20

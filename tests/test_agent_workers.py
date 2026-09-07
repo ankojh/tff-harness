@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from app.agent_loop import AgentService
-from app.agent_runs import AgentControlTools, AgentRunStore
+from app.agent_runs import AgentControlTools, AgentRunError, AgentRunStore
 from app.agent_workers import AgentWorkerTools
 from app.approvals import ApprovalBroker
 from app.config import Settings
@@ -1321,8 +1321,53 @@ async def test_restart_recovers_only_unrecorded_selected_file_integration(tmp_pa
     ] == "pending"
 
 
+def test_worker_tool_schemas_have_explicit_types(tmp_path):
+    tools, _, _ = worker_tools(tmp_path, lambda request: None)
+
+    def check(schema, path):
+        assert isinstance(schema.get("type"), str), path
+        for name, child in schema.get("properties", {}).items():
+            check(child, f"{path}.properties.{name}")
+        if "items" in schema:
+            check(schema["items"], f"{path}.items")
+        if isinstance(schema.get("additionalProperties"), dict):
+            check(schema["additionalProperties"], f"{path}.additionalProperties")
+
+    for definition in tools.definitions:
+        function = definition["function"]
+        check(function["parameters"], function["name"])
+
+
+@pytest.mark.parametrize("value", [False, True, 42, 1.5, None, {"ok": [True, 1]}, [1, "two"], "false"])
+def test_graph_comparisons_decode_json_values(tmp_path, value):
+    tools, _, _ = worker_tools(tmp_path, lambda request: None)
+    rule = {"operator": "artifact_equals", "artifact": "result", "value_json": json.dumps(value)}
+    condition = tools.graphs._condition({"source": "first", **rule}, ["first"])
+    loop = tools.graphs._loop({"max_iterations": 2, "until": rule}, "reviewer", "read_only")
+    for normalized in (condition, loop["until"]):
+        assert normalized["value"] == value
+        assert type(normalized["value"]) is type(value)
+        assert "value_json" not in normalized
+
+
+@pytest.mark.parametrize("fields", [
+    {"value_json": "broken"},
+    {"value_json": False},
+    {"value_json": "false", "value": "false"},
+    {"value_json": "false", "operator": "report_contains"},
+])
+def test_graph_comparisons_reject_invalid_json_values(tmp_path, fields):
+    tools, _, _ = worker_tools(tmp_path, lambda request: None)
+    rule = {"operator": "artifact_equals", "artifact": "result", **fields}
+    with pytest.raises(AgentRunError):
+        tools.graphs._condition({"source": "first", **rule}, ["first"])
+    with pytest.raises(AgentRunError):
+        tools.graphs._loop({"max_iterations": 2, "until": rule}, "reviewer", "read_only")
+
+
 @pytest.mark.asyncio
-async def test_rich_graph_conditional_branches_use_typed_artifacts(tmp_path):
+@pytest.mark.parametrize("comparison", [{"value": False}, {"value_json": "false"}])
+async def test_rich_graph_conditional_branches_use_typed_artifacts(tmp_path, comparison):
     calls = 0
 
     def handler(request):
@@ -1378,7 +1423,7 @@ async def test_rich_graph_conditional_branches_use_typed_artifacts(tmp_path):
                             "source": "decide",
                             "operator": "artifact_equals",
                             "artifact": "proceed",
-                            "value": False,
+                            **comparison,
                         },
                     },
                 ]

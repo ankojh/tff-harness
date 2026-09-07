@@ -1,6 +1,7 @@
 import json
 
 from app.agent_runs import AgentControlTools, AgentRunStore
+from app.config import Settings
 
 
 def make_run(store):
@@ -17,6 +18,34 @@ def make_run(store):
         },
         messages=[{"role": "user", "content": "Implement the feature"}],
     )
+
+
+def test_long_run_history_survives_restart_with_expanded_budgets(tmp_path):
+    settings = Settings("http://model.test", "model-test", None)
+    store = AgentRunStore(tmp_path / "agent.json")
+    messages = [{"role": "user", "content": "Inspect the workspace"}]
+    for index in range(settings.agent_max_tool_rounds):
+        calls = [
+            {"id": f"call-{index}-{number}", "type": "function", "function": {
+                "name": "list_files", "arguments": "{}",
+            }}
+            for number in range(2)
+        ]
+        messages.append({"role": "assistant", "content": None, "tool_calls": calls})
+        messages.extend({"role": "tool", "tool_call_id": call["id"], "content": '{"ok":true}'} for call in calls)
+    run = store.create(
+        "Inspect the workspace", model="model-test", temperature=0.0, max_tokens=128,
+        budgets={
+            "max_tool_rounds": settings.agent_max_tool_rounds,
+            "max_tool_calls": settings.agent_max_tool_calls,
+            "max_seconds": settings.agent_max_seconds,
+            "max_consecutive_failures": settings.agent_max_consecutive_failures,
+        },
+        messages=messages,
+    )
+    recovered = AgentRunStore(tmp_path / "agent.json").get(run["id"])
+    assert recovered["messages"] == messages
+    assert recovered["budgets"] == run["budgets"]
 
 
 def test_agent_completion_requires_plan_and_verification(tmp_path):
